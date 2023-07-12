@@ -1,5 +1,4 @@
 .python-version
 *.pyc
-*.json
 *.zip
 *.tar.*
