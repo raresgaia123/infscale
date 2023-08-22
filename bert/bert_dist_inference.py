@@ -436,7 +436,7 @@ class RRDistBertModel(BertPreTrainedModel):
 
         def merge_tupled_tensors(tlist: list):
             # tlist is a list of tuples of tensors that have the same number of cells
-            out = tuple
+            out = tuple()
             for i in range(len(tlist[0])):
                 out = out + (torch.cat([x[i] for x in tlist]), )
             return out
@@ -493,7 +493,6 @@ def run_master(inputs, split_size, num_workers, partitions, shards, pre_trained 
 
     config = BertConfig()
     if pre_trained == True:
-        # TODO: load pre_trained model
         net = BertModel.from_pretrained("bert-base-uncased")
     else:
         net = BertModel(config)
