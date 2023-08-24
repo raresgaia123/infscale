@@ -15,7 +15,7 @@ from torch.distributed.rpc import RRef
 from torchvision.models.resnet import Bottleneck, resnet50, ResNet50_Weights
 
 sys.path.append(".")
-from inference_pipeline import CNNShardBase, RR_CNNPipeline
+from inference_pipeline import CNNShardBase, RR_CNNPipeline, list2csvcell
 
 
 #########################################################
@@ -24,16 +24,16 @@ from inference_pipeline import CNNShardBase, RR_CNNPipeline
 
 num_batches = 100
 num_classes = 1000
-batch_size = 120
-image_w = 128
-image_h = 128
+batch_size = 64
+image_w = 224
+image_h = 224
 
 def flat_func(x):
     return torch.flatten(x, 1)
 
 def run_master(split_size, num_workers, partitions, shards, pre_trained = False):
 
-    file = open("./resnet50_even.csv", "a")
+    file = open("./resnet50_6_uneven.csv", "a")
     original_stdout = sys.stdout
     sys.stdout = file
 
@@ -58,14 +58,14 @@ def run_master(split_size, num_workers, partitions, shards, pre_trained = False)
         flat_func,
         net.fc
     ]
-    devices = ["cuda:{}".format(i) for i in range(1, 4)]
+    devices = ["cuda:{}".format(i) for i in range(0, 4)]
 
     model = RR_CNNPipeline(split_size, workers, layers, partitions, shards, devices + devices)
 
     # generating inputs
     inputs = torch.randn(batch_size, 3, image_w, image_h, dtype=next(net.parameters()).dtype)
     
-    print("{}".format(shards),end=", ")
+    print("{}".format(list2csvcell(shards)),end=", ")
     tik = time.time()
     for i in range(num_batches):
         outputs = model(inputs)
@@ -105,16 +105,19 @@ def run_worker(rank, world_size, split_size, partitions, shards, pre_trained = F
 
 
 if __name__=="__main__":
-    file = open("./resnet50_even.log", "w")
+    file = open("./resnet50_6_uneven.log", "w")
+    open("./resnet50_6_uneven.csv", "w")
     original_stdout = sys.stdout
     sys.stdout = file
 
     partitions = [6]
+    repeat_times = 5
     placements = [[1, 2], [1, 1, 2, 2], [1, 1, 2], [1, 2, 2]]
     for shards in placements:
         world_size = len(shards) + 1
         print("Placement:", shards)
-        for split_size in [1, 2, 4, 8]:
+        for i in range(repeat_times):
+            split_size = 8
             tik = time.time()
             mp.spawn(run_worker, args=(world_size, split_size, partitions, shards), nprocs=world_size, join=True)
             tok = time.time()

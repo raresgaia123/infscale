@@ -12,6 +12,17 @@ from torch.nn.parameter import Parameter
 from transformers import PreTrainedModel
 
 ###########################################################################################
+# Helper Functions
+###########################################################################################
+
+def list2csvcell(l):
+    s = str(l[0])
+    for i in range(1, len(l)):
+        s += "-" + str(l[i])
+
+    return s
+
+###########################################################################################
 # Common building blocks for Convolutional Neural Network
 ###########################################################################################
 

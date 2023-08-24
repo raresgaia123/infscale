@@ -16,7 +16,7 @@ from torch.distributed.rpc import RRef
 from torchvision.models import vgg16, VGG16_Weights
 
 sys.path.append(".")
-from inference_pipeline import RR_CNNPipeline, CNNShardBase
+from inference_pipeline import RR_CNNPipeline, CNNShardBase, list2csvcell
 
 #########################################################
 #                   Run RPC Processes                   #
@@ -33,7 +33,7 @@ def flat_func(x):
 
 def run_master(split_size, num_workers, partitions, shards, pre_trained = False):
 
-    file = open("./vgg16_mild_uneven.csv", "a")
+    file = open("./vgg16_3_6_uneven.csv", "a")
     original_stdout = sys.stdout
     sys.stdout = file
 
@@ -55,7 +55,7 @@ def run_master(split_size, num_workers, partitions, shards, pre_trained = False)
     # generating inputs
     inputs = torch.randn(batch_size, 3, image_w, image_h)
     
-    print("{}".format(shards),end=", ")
+    print("{}".format(list2csvcell(shards)),end=", ")
     tik = time.time()
     for i in range(num_batches):
         outputs = model(inputs)
@@ -95,15 +95,18 @@ def run_worker(rank, world_size, split_size, partitions, shards, pre_trained = F
 
 
 if __name__=="__main__":
-    file = open("./vgg16_mild_uneven.log", "w")
+    file = open("./vgg16_3_6_uneven.log", "w")
+    open("./vgg16_3_6_uneven.csv", "w")
     original_stdout = sys.stdout
     sys.stdout = file
     partitions = [3, 6]
+    repeat_times = 5
     combo = [[1, 2, 3], [1, 1, 2, 3], [1, 1, 2, 2, 3], [1, 1, 2, 2, 3, 3]]
     for shards in combo:
         print("Placement:", shards)
         world_size = len(shards) + 1
-        for split_size in [1, 2, 4, 8]:
+        for i in range(repeat_times):
+            split_size = 8
             tik = time.time()
             mp.spawn(run_worker, args=(world_size, split_size, partitions, shards, True), nprocs=world_size, join=True)
             tok = time.time()
