@@ -50,25 +50,33 @@ def run_master(split_size, num_workers, partitions, shards, pre_trained = False)
         net.bn1,
         net.relu,
         net.maxpool,
-        *net.layer1,
-        *net.layer2,
-        *net.layer3,
-        *net.layer4,
+        net.layer1,
+        net.layer2,
+        net.layer3,
+        net.layer4,
         net.avgpool,
         flat_func,
         net.fc
     ]
     devices = ["cuda:{}".format(i) for i in range(0, 4)]
-
-    model = RR_CNNPipeline(split_size, workers, layers, partitions, shards, devices + devices)
-
     # generating inputs
     inputs = torch.randn(batch_size, 3, image_w, image_h, dtype=next(net.parameters()).dtype)
+
+    if len(shards) == 0:
+        # no partitioning
+        model = net.to("cuda:0")
+    else:
+        model = RR_CNNPipeline(split_size, workers, layers, partitions, shards, devices + devices, logging=True)
     
     print("{}".format(list2csvcell(shards)),end=", ")
     tik = time.time()
     for i in range(num_batches):
-        outputs = model(inputs)
+        if len(shards) == 0:
+            batch = inputs.to("cuda:0")
+        else:
+            batch = inputs
+
+        outputs = model(batch)
 
     tok = time.time()
     print(f"{split_size}, {tok - tik}, {(num_batches * batch_size) / (tok - tik)}")
@@ -110,9 +118,9 @@ if __name__=="__main__":
     original_stdout = sys.stdout
     sys.stdout = file
 
-    partitions = [6]
-    repeat_times = 5
-    placements = [[1, 2], [1, 1, 2, 2], [1, 1, 2], [1, 2, 2]]
+    partitions = [8]
+    repeat_times = 1
+    placements = [[1, 2]]
     for shards in placements:
         world_size = len(shards) + 1
         print("Placement:", shards)

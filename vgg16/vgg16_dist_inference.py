@@ -49,16 +49,25 @@ def run_master(split_size, num_workers, partitions, shards, pre_trained = False)
         flat_func,
         *net.classifier
     ]
-    cuda_list = ["cuda:{}".format(i) for i in range(1, 4)]
-    model = RR_CNNPipeline(split_size, workers, layers = layers, partitions=partitions, devices=cuda_list + cuda_list + cuda_list, shards=shards)
-
+    devices = ["cuda:{}".format(i) for i in range(0, 4)]
     # generating inputs
     inputs = torch.randn(batch_size, 3, image_w, image_h)
+
+    if len(shards) == 0:
+        # no partitioning
+        model = net.to("cuda:0")
+    else:
+        model = RR_CNNPipeline(split_size, workers, layers, partitions, shards, devices + devices, logging=True)
     
     print("{}".format(list2csvcell(shards)),end=", ")
     tik = time.time()
     for i in range(num_batches):
-        outputs = model(inputs)
+        if len(shards) == 0:
+            batch = inputs.to("cuda:0")
+        else:
+            batch = inputs
+
+        outputs = model(batch)
 
     tok = time.time()
     print(f"{split_size}, {tok - tik}, {(num_batches * batch_size) / (tok - tik)}")
@@ -100,8 +109,8 @@ if __name__=="__main__":
     original_stdout = sys.stdout
     sys.stdout = file
     partitions = [3, 6]
-    repeat_times = 5
-    combo = [[1, 2, 3], [1, 1, 2, 3], [1, 1, 2, 2, 3], [1, 1, 2, 2, 3, 3]]
+    repeat_times = 1
+    combo = [[1, 2, 3]]
     for shards in combo:
         print("Placement:", shards)
         world_size = len(shards) + 1

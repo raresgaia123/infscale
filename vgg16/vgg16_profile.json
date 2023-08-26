@@ -2,11 +2,11 @@
     "Profile Summary": {
         "params per gpu": "138357544",
         "params of model": "0       ",
-        "fwd MACs per GPU": "3960.39 GMACs",
-        "fwd flops per GPU": "7929.29 G",
-        "fwd flops of model": "7929.29 G",
-        "fwd latency": "11.82 s ",
-        "fwd FLOPS per GPU": "670.87 GFLOPS"
+        "fwd MACs per GPU": "990.1 GMACs",
+        "fwd flops per GPU": "1982.32 G",
+        "fwd flops of model": "1982.32 G",
+        "fwd latency": "3.59 s  ",
+        "fwd FLOPS per GPU": "551.47 GFLOPS"
     },
     "Aggregated Profile per GPU": {
         "depth 0": {
@@ -14,10 +14,10 @@
                 "VGG": "138.36 M"
             },
             "MACs": {
-                "VGG": "3960.39 GMACs"
+                "VGG": "990.1 GMACs"
             },
             "fwd latency": {
-                "VGG": "11.82 s"
+                "VGG": "3.59 s"
             }
         },
         "depth 1": {
@@ -25,10 +25,10 @@
                 "Sequential": "138.36 M"
             },
             "MACs": {
-                "Sequential": "3960.39 GMACs"
+                "Sequential": "990.1 GMACs"
             },
             "fwd latency": {
-                "Sequential": "11.77 s"
+                "Sequential": "3.57 s"
             }
         }
     },
@@ -37,42 +37,42 @@
             "extra": {
                 "params": "138.36 M",
                 "percentage of total params": "100.00%",
-                "MACs": "3960.39 GMACs",
+                "MACs": "990.1 GMACs",
                 "percentage of total MACs": "100.00%",
-                "fwd latency": "11.82 s",
+                "fwd latency": "3.59 s",
                 "percentage of total fwd latency": "100.00%",
-                "fwd FLOPS": "670.87 GFLOPS"
+                "fwd FLOPS": "551.47 GFLOPS"
             },
             "children": {
                 "features": {
                     "extra": {
                         "params": "14.71 M",
                         "percentage of total params": "10.64%",
-                        "MACs": "3928.74 GMACs",
+                        "MACs": "982.18 GMACs",
                         "percentage of total MACs": "99.20%",
-                        "fwd latency": "11.68 s",
-                        "percentage of total fwd latency": "98.84%",
-                        "fwd FLOPS": "673.33 GFLOPS"
+                        "fwd latency": "3.53 s",
+                        "percentage of total fwd latency": "98.25%",
+                        "fwd FLOPS": "556.8 GFLOPS"
                     },
                     "children": {
                         "0": {
                             "extra": {
                                 "params": "1.79 k",
                                 "percentage of total params": "0.00%",
-                                "MACs": "22.2 GMACs",
+                                "MACs": "5.55 GMACs",
                                 "percentage of total MACs": "0.56%",
-                                "fwd latency": "669.26 ms",
-                                "percentage of total fwd latency": "5.66%",
-                                "fwd FLOPS": "67.56 GFLOPS"
+                                "fwd latency": "129.95 ms",
+                                "percentage of total fwd latency": "3.62%",
+                                "fwd FLOPS": "86.99 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 3,
                                 224,
                                 224
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
@@ -85,18 +85,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "120.85 ms",
-                                "percentage of total fwd latency": "1.02%",
-                                "fwd FLOPS": "6.8 GFLOPS"
+                                "fwd latency": "30.83 ms",
+                                "percentage of total fwd latency": "0.86%",
+                                "fwd FLOPS": "6.67 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
@@ -107,20 +107,20 @@
                             "extra": {
                                 "params": "36.93 k",
                                 "percentage of total params": "0.03%",
-                                "MACs": "473.52 GMACs",
+                                "MACs": "118.38 GMACs",
                                 "percentage of total MACs": "11.96%",
-                                "fwd latency": "1.7 s",
-                                "percentage of total fwd latency": "14.41%",
-                                "fwd FLOPS": "556.71 GFLOPS"
+                                "fwd latency": "384.09 ms",
+                                "percentage of total fwd latency": "10.69%",
+                                "fwd FLOPS": "616.96 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
@@ -133,18 +133,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "120.73 ms",
-                                "percentage of total fwd latency": "1.02%",
-                                "fwd FLOPS": "6.81 GFLOPS"
+                                "fwd latency": "30.26 ms",
+                                "percentage of total fwd latency": "0.84%",
+                                "fwd FLOPS": "6.79 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
@@ -157,18 +157,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "243.51 ms",
-                                "percentage of total fwd latency": "2.06%",
+                                "fwd latency": "60.8 ms",
+                                "percentage of total fwd latency": "1.69%",
                                 "fwd FLOPS": "3.38 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 64,
                                 224,
                                 224
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 64,
                                 112,
                                 112
@@ -179,20 +179,20 @@
                             "extra": {
                                 "params": "73.86 k",
                                 "percentage of total params": "0.05%",
-                                "MACs": "236.76 GMACs",
+                                "MACs": "59.19 GMACs",
                                 "percentage of total MACs": "5.98%",
-                                "fwd latency": "702.2 ms",
-                                "percentage of total fwd latency": "5.94%",
-                                "fwd FLOPS": "674.93 GFLOPS"
+                                "fwd latency": "176.93 ms",
+                                "percentage of total fwd latency": "4.92%",
+                                "fwd FLOPS": "669.66 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 64,
                                 112,
                                 112
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
@@ -205,18 +205,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "61.9 ms",
-                                "percentage of total fwd latency": "0.52%",
-                                "fwd FLOPS": "6.64 GFLOPS"
+                                "fwd latency": "16.4 ms",
+                                "percentage of total fwd latency": "0.46%",
+                                "fwd FLOPS": "6.27 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
@@ -227,20 +227,20 @@
                             "extra": {
                                 "params": "147.58 k",
                                 "percentage of total params": "0.11%",
-                                "MACs": "473.52 GMACs",
+                                "MACs": "118.38 GMACs",
                                 "percentage of total MACs": "11.96%",
-                                "fwd latency": "1.18 s",
-                                "percentage of total fwd latency": "10.00%",
-                                "fwd FLOPS": "801.84 GFLOPS"
+                                "fwd latency": "384.82 ms",
+                                "percentage of total fwd latency": "10.71%",
+                                "fwd FLOPS": "615.51 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
@@ -253,18 +253,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "61.14 ms",
-                                "percentage of total fwd latency": "0.52%",
-                                "fwd FLOPS": "6.72 GFLOPS"
+                                "fwd latency": "15.01 ms",
+                                "percentage of total fwd latency": "0.42%",
+                                "fwd FLOPS": "6.85 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
@@ -277,18 +277,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "127.91 ms",
-                                "percentage of total fwd latency": "1.08%",
-                                "fwd FLOPS": "3.21 GFLOPS"
+                                "fwd latency": "30.27 ms",
+                                "percentage of total fwd latency": "0.84%",
+                                "fwd FLOPS": "3.39 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 128,
                                 112,
                                 112
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 128,
                                 56,
                                 56
@@ -299,20 +299,20 @@
                             "extra": {
                                 "params": "295.17 k",
                                 "percentage of total params": "0.21%",
-                                "MACs": "236.76 GMACs",
+                                "MACs": "59.19 GMACs",
                                 "percentage of total MACs": "5.98%",
-                                "fwd latency": "556.23 ms",
-                                "percentage of total fwd latency": "4.71%",
-                                "fwd FLOPS": "851.68 GFLOPS"
+                                "fwd latency": "139.74 ms",
+                                "percentage of total fwd latency": "3.89%",
+                                "fwd FLOPS": "847.51 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 128,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
@@ -325,18 +325,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "31.04 ms",
-                                "percentage of total fwd latency": "0.26%",
-                                "fwd FLOPS": "6.62 GFLOPS"
+                                "fwd latency": "7.32 ms",
+                                "percentage of total fwd latency": "0.20%",
+                                "fwd FLOPS": "7.02 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
@@ -347,20 +347,20 @@
                             "extra": {
                                 "params": "590.08 k",
                                 "percentage of total params": "0.43%",
-                                "MACs": "473.52 GMACs",
+                                "MACs": "118.38 GMACs",
                                 "percentage of total MACs": "11.96%",
-                                "fwd latency": "986.84 ms",
-                                "percentage of total fwd latency": "8.35%",
-                                "fwd FLOPS": "959.88 GFLOPS"
+                                "fwd latency": "249.3 ms",
+                                "percentage of total fwd latency": "6.94%",
+                                "fwd FLOPS": "949.92 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
@@ -373,18 +373,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "33.14 ms",
-                                "percentage of total fwd latency": "0.28%",
-                                "fwd FLOPS": "6.2 GFLOPS"
+                                "fwd latency": "7.39 ms",
+                                "percentage of total fwd latency": "0.21%",
+                                "fwd FLOPS": "6.95 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
@@ -395,20 +395,20 @@
                             "extra": {
                                 "params": "590.08 k",
                                 "percentage of total params": "0.43%",
-                                "MACs": "473.52 GMACs",
+                                "MACs": "118.38 GMACs",
                                 "percentage of total MACs": "11.96%",
-                                "fwd latency": "1.04 s",
-                                "percentage of total fwd latency": "8.79%",
-                                "fwd FLOPS": "911.98 GFLOPS"
+                                "fwd latency": "253.58 ms",
+                                "percentage of total fwd latency": "7.05%",
+                                "fwd FLOPS": "933.86 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
@@ -421,18 +421,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "30.77 ms",
-                                "percentage of total fwd latency": "0.26%",
-                                "fwd FLOPS": "6.68 GFLOPS"
+                                "fwd latency": "7.33 ms",
+                                "percentage of total fwd latency": "0.20%",
+                                "fwd FLOPS": "7.0 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
@@ -445,18 +445,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "59.91 ms",
-                                "percentage of total fwd latency": "0.51%",
-                                "fwd FLOPS": "3.43 GFLOPS"
+                                "fwd latency": "15.62 ms",
+                                "percentage of total fwd latency": "0.43%",
+                                "fwd FLOPS": "3.29 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 56,
                                 56
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 256,
                                 28,
                                 28
@@ -467,20 +467,20 @@
                             "extra": {
                                 "params": "1.18 M",
                                 "percentage of total params": "0.85%",
-                                "MACs": "236.76 GMACs",
+                                "MACs": "59.19 GMACs",
                                 "percentage of total MACs": "5.98%",
-                                "fwd latency": "491.34 ms",
-                                "percentage of total fwd latency": "4.16%",
-                                "fwd FLOPS": "963.94 GFLOPS"
+                                "fwd latency": "126.41 ms",
+                                "percentage of total fwd latency": "3.52%",
+                                "fwd FLOPS": "936.69 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 256,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
@@ -493,18 +493,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "15.63 ms",
-                                "percentage of total fwd latency": "0.13%",
-                                "fwd FLOPS": "6.57 GFLOPS"
+                                "fwd latency": "3.52 ms",
+                                "percentage of total fwd latency": "0.10%",
+                                "fwd FLOPS": "7.31 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
@@ -515,20 +515,20 @@
                             "extra": {
                                 "params": "2.36 M",
                                 "percentage of total params": "1.71%",
-                                "MACs": "473.52 GMACs",
+                                "MACs": "118.38 GMACs",
                                 "percentage of total MACs": "11.96%",
-                                "fwd latency": "921.29 ms",
-                                "percentage of total fwd latency": "7.79%",
+                                "fwd latency": "230.6 ms",
+                                "percentage of total fwd latency": "6.42%",
                                 "fwd FLOPS": "1.03 TFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
@@ -541,18 +541,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "15.49 ms",
-                                "percentage of total fwd latency": "0.13%",
-                                "fwd FLOPS": "6.63 GFLOPS"
+                                "fwd latency": "3.55 ms",
+                                "percentage of total fwd latency": "0.10%",
+                                "fwd FLOPS": "7.24 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
@@ -563,20 +563,20 @@
                             "extra": {
                                 "params": "2.36 M",
                                 "percentage of total params": "1.71%",
-                                "MACs": "473.52 GMACs",
+                                "MACs": "118.38 GMACs",
                                 "percentage of total MACs": "11.96%",
-                                "fwd latency": "923.63 ms",
-                                "percentage of total fwd latency": "7.81%",
-                                "fwd FLOPS": "1.03 TFLOPS"
+                                "fwd latency": "233.31 ms",
+                                "percentage of total fwd latency": "6.49%",
+                                "fwd FLOPS": "1.01 TFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
@@ -589,18 +589,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "15.39 ms",
-                                "percentage of total fwd latency": "0.13%",
-                                "fwd FLOPS": "6.68 GFLOPS"
+                                "fwd latency": "3.56 ms",
+                                "percentage of total fwd latency": "0.10%",
+                                "fwd FLOPS": "7.22 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
@@ -613,18 +613,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "31.15 ms",
-                                "percentage of total fwd latency": "0.26%",
-                                "fwd FLOPS": "3.3 GFLOPS"
+                                "fwd latency": "8.31 ms",
+                                "percentage of total fwd latency": "0.23%",
+                                "fwd FLOPS": "3.09 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 28,
                                 28
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -635,20 +635,20 @@
                             "extra": {
                                 "params": "2.36 M",
                                 "percentage of total params": "1.71%",
-                                "MACs": "118.38 GMACs",
+                                "MACs": "29.6 GMACs",
                                 "percentage of total MACs": "2.99%",
-                                "fwd latency": "241.35 ms",
-                                "percentage of total fwd latency": "2.04%",
-                                "fwd FLOPS": "981.08 GFLOPS"
+                                "fwd latency": "61.25 ms",
+                                "percentage of total fwd latency": "1.70%",
+                                "fwd FLOPS": "966.39 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -661,18 +661,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "3.74 ms",
-                                "percentage of total fwd latency": "0.03%",
-                                "fwd FLOPS": "6.88 GFLOPS"
+                                "fwd latency": "515.46 us",
+                                "percentage of total fwd latency": "0.01%",
+                                "fwd FLOPS": "12.46 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -683,20 +683,20 @@
                             "extra": {
                                 "params": "2.36 M",
                                 "percentage of total params": "1.71%",
-                                "MACs": "118.38 GMACs",
+                                "MACs": "29.6 GMACs",
                                 "percentage of total MACs": "2.99%",
-                                "fwd latency": "241.67 ms",
-                                "percentage of total fwd latency": "2.04%",
-                                "fwd FLOPS": "979.8 GFLOPS"
+                                "fwd latency": "59.26 ms",
+                                "percentage of total fwd latency": "1.65%",
+                                "fwd FLOPS": "998.95 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -709,18 +709,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "3.68 ms",
-                                "percentage of total fwd latency": "0.03%",
-                                "fwd FLOPS": "6.98 GFLOPS"
+                                "fwd latency": "487.8 us",
+                                "percentage of total fwd latency": "0.01%",
+                                "fwd FLOPS": "13.17 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -731,20 +731,20 @@
                             "extra": {
                                 "params": "2.36 M",
                                 "percentage of total params": "1.71%",
-                                "MACs": "118.38 GMACs",
+                                "MACs": "29.6 GMACs",
                                 "percentage of total MACs": "2.99%",
-                                "fwd latency": "248.97 ms",
-                                "percentage of total fwd latency": "2.11%",
-                                "fwd FLOPS": "951.06 GFLOPS"
+                                "fwd latency": "57.64 ms",
+                                "percentage of total fwd latency": "1.60%",
+                                "fwd FLOPS": "1.03 TFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -757,18 +757,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "3.66 ms",
-                                "percentage of total fwd latency": "0.03%",
-                                "fwd FLOPS": "7.01 GFLOPS"
+                                "fwd latency": "586.27 us",
+                                "percentage of total fwd latency": "0.02%",
+                                "fwd FLOPS": "10.95 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
@@ -781,18 +781,18 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "7.86 ms",
-                                "percentage of total fwd latency": "0.07%",
-                                "fwd FLOPS": "3.27 GFLOPS"
+                                "fwd latency": "1.41 ms",
+                                "percentage of total fwd latency": "0.04%",
+                                "fwd FLOPS": "4.54 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 512,
                                 14,
                                 14
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 512,
                                 7,
                                 7
@@ -808,18 +808,18 @@
                         "percentage of total params": "0.00%",
                         "MACs": "0 MACs",
                         "percentage of total MACs": "0.00%",
-                        "fwd latency": "27.46 ms",
-                        "percentage of total fwd latency": "0.23%",
-                        "fwd FLOPS": "233.91 MFLOPS"
+                        "fwd latency": "4.93 ms",
+                        "percentage of total fwd latency": "0.14%",
+                        "fwd FLOPS": "325.4 MFLOPS"
                     },
                     "input_shape": [
-                        256,
+                        64,
                         512,
                         7,
                         7
                     ],
                     "output_shape": [
-                        256,
+                        64,
                         512,
                         7,
                         7
@@ -830,29 +830,29 @@
                     "extra": {
                         "params": "123.64 M",
                         "percentage of total params": "89.36%",
-                        "MACs": "31.65 GMACs",
+                        "MACs": "7.91 GMACs",
                         "percentage of total MACs": "0.80%",
-                        "fwd latency": "83.76 ms",
-                        "percentage of total fwd latency": "0.71%",
-                        "fwd FLOPS": "755.76 GFLOPS"
+                        "fwd latency": "34.76 ms",
+                        "percentage of total fwd latency": "0.97%",
+                        "fwd FLOPS": "455.31 GFLOPS"
                     },
                     "children": {
                         "0": {
                             "extra": {
                                 "params": "102.76 M",
                                 "percentage of total params": "74.27%",
-                                "MACs": "26.31 GMACs",
+                                "MACs": "6.58 GMACs",
                                 "percentage of total MACs": "0.66%",
-                                "fwd latency": "59.04 ms",
-                                "percentage of total fwd latency": "0.50%",
-                                "fwd FLOPS": "891.14 GFLOPS"
+                                "fwd latency": "19.16 ms",
+                                "percentage of total fwd latency": "0.53%",
+                                "fwd FLOPS": "686.65 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 25088
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "name": "Linear"
@@ -863,16 +863,16 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "273.7 us",
-                                "percentage of total fwd latency": "0.00%",
-                                "fwd FLOPS": "3.83 GFLOPS"
+                                "fwd latency": "240.8 us",
+                                "percentage of total fwd latency": "0.01%",
+                                "fwd FLOPS": "1.09 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "name": "ReLU"
@@ -883,16 +883,16 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "76.29 us",
+                                "fwd latency": "73.67 us",
                                 "percentage of total fwd latency": "0.00%",
                                 "fwd FLOPS": "0.0 FLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "name": "Dropout"
@@ -901,18 +901,18 @@
                             "extra": {
                                 "params": "16.78 M",
                                 "percentage of total params": "12.13%",
-                                "MACs": "4.29 GMACs",
+                                "MACs": "1.07 GMACs",
                                 "percentage of total MACs": "0.11%",
-                                "fwd latency": "11.0 ms",
-                                "percentage of total fwd latency": "0.09%",
-                                "fwd FLOPS": "780.59 GFLOPS"
+                                "fwd latency": "4.27 ms",
+                                "percentage of total fwd latency": "0.12%",
+                                "fwd FLOPS": "502.52 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "name": "Linear"
@@ -923,16 +923,16 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "275.85 us",
-                                "percentage of total fwd latency": "0.00%",
-                                "fwd FLOPS": "3.8 GFLOPS"
+                                "fwd latency": "227.93 us",
+                                "percentage of total fwd latency": "0.01%",
+                                "fwd FLOPS": "1.15 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "name": "ReLU"
@@ -943,16 +943,16 @@
                                 "percentage of total params": "0.00%",
                                 "MACs": "0 MACs",
                                 "percentage of total MACs": "0.00%",
-                                "fwd latency": "72.24 us",
+                                "fwd latency": "65.57 us",
                                 "percentage of total fwd latency": "0.00%",
                                 "fwd FLOPS": "0.0 FLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "name": "Dropout"
@@ -961,18 +961,18 @@
                             "extra": {
                                 "params": "4.1 M",
                                 "percentage of total params": "2.96%",
-                                "MACs": "1.05 GMACs",
+                                "MACs": "262.14 MMACs",
                                 "percentage of total MACs": "0.03%",
-                                "fwd latency": "2.77 ms",
-                                "percentage of total fwd latency": "0.02%",
-                                "fwd FLOPS": "758.09 GFLOPS"
+                                "fwd latency": "1.1 ms",
+                                "percentage of total fwd latency": "0.03%",
+                                "fwd FLOPS": "474.95 GFLOPS"
                             },
                             "input_shape": [
-                                256,
+                                64,
                                 4096
                             ],
                             "output_shape": [
-                                256,
+                                64,
                                 1000
                             ],
                             "name": "Linear"

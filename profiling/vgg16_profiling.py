@@ -6,7 +6,7 @@ from profile_in_json import get_model_inference_profile
 
 with get_accelerator().device(0):
     model = models.vgg16()
-    batch_size = 256
+    batch_size = 64
     flops, macs, params = get_model_inference_profile(model=model, # model
                                     input_shape=(batch_size, 3, 224, 224), # input shape to the model. If specified, the model takes a tensor with this shape as the only positional argument.
                                     args=None, # list of positional arguments to the model.
