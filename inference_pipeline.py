@@ -44,7 +44,7 @@ class CNNShardBase(nn.Module):
             self.log_en = False
 
         if self.log_en:
-            self.logfile = open("shard-{}-{}.log".format(self.shard_index, self.partition_index), "w")
+            self.logfile = open("shard-sid{}-pid{}.log".format(self.shard_index, self.partition_index), "w")
             print("Layers:", self.layers, file=self.logfile, flush=True)
 
         self.accumulated_processing_time = 0
@@ -104,7 +104,7 @@ class RR_CNNPipeline(nn.Module):
         for i in range(len(shards)):
             partition_id = shards[i] - 1
             shard_layers = layer_partitions[partition_id]
-            kwargs["pid"] = partition_id
+            kwargs["pid"] = partition_id + 1
             kwargs["sid"] = i
             rref = rpc.remote(
                 workers[i],
@@ -240,7 +240,7 @@ class TransformerShardBase(nn.Module):
             self.log_en = False
 
         if self.log_en:
-            self.logfile = open("shard-{}-{}.log".format(self.shard_index, self.partition_index), "w")
+            self.logfile = open("shard-sid{}-pid{}.log".format(self.shard_index, self.partition_index), "w")
     
     def forward(self, x_rref):
         x = x_rref.to_here()
