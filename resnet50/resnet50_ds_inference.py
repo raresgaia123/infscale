@@ -5,7 +5,7 @@ from deepspeed.pipe import PipelineModule
 from torchvision.models.resnet import resnet50, ResNet50_Weights
 
 num_batches = 100
-num_classes = 10
+num_classes = 1000
 batch_size = 64
 image_w = 224
 image_h = 224
