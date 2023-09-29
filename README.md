@@ -41,13 +41,12 @@ The class that implements the abstraction of a pipeline for Transformer NN model
 ## Optimized implementation of LLM pipeline (Development Ongoing)
 A prototype implementation that is renovated from the PyTorch RPC-based implementation with optimizations aiming to improve performance.
 Although the instances of pipeline classes still use PyTorch RPC to configure and control shards managed by the pipeline in this implementation, the data communications between shards are using [PyTorch distributed p2p communication primitives](https://pytorch.org/docs/stable/distributed.html#point-to-point-communication).
-
 ```
 class CNNShardBase
 ```
 The class implements the abstraction of a shard of pipelined Convolutional Neural Networks.
 ```
-class CNN PipelineCollector
+class CNNPipelineCollector
 ```
 This class implements a collector that receives unordered results of mini-batches from shards of the last stage of the pipeline and reorders them to obtain the consistent result of the input batch data. 
 ```
