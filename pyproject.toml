@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="infscale"
+version = "0.0.1"
+authors = [{ name="Infscale Maintainers", email="infscale-github-owners@cisco.com" }]
+description="This package is a python library to serve ML model in the infscale system"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch >= 2.0.1",
+    "torchvision >= 0.15.2",
+    "transformers >= 4.30.2",
+]
+
+[project.optional-dependencies]
+dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]

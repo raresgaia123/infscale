@@ -1,14 +1,13 @@
 all: build
-.PHONY: build install
+.PHONY: install
 
-build:
-	@python3 setup.py bdist_wheel
-
-install: build
-	@pip3 install dist/infscale*.whl
+install:
+	@pip3 install .
 
 uninstall:
 	@pip3 uninstall -y infscale
+
+reinstall: clean uninstall install
 
 clean:
 	@rm -rf build dist infscale.egg-info
