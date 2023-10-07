@@ -1,21 +1,13 @@
 import os
-import json
-import yaml
-import threading
-import time
 import sys
-from functools import wraps
+import time
 
 import torch
-import torch.nn as nn
 import torch.distributed.rpc as rpc
 import torch.multiprocessing as mp
-from torch.distributed.rpc import RRef
-from torchvision.models.resnet import resnet50, ResNet50_Weights
-
-sys.path.append(".")
-from optim_inference_pipeline import CNNPipeline, list2csvcell
-
+import yaml
+from infscale.optim_inference_pipeline import CNNPipeline, list2csvcell
+from torchvision.models.resnet import ResNet50_Weights, resnet50
 
 #########################################################
 #                   Run RPC Processes                   #
@@ -41,7 +33,6 @@ def run_master(
     pre_trained=False,
     logging=False,
 ):
-
     if pre_trained == True:
         net = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
     else:

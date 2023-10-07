@@ -6,7 +6,7 @@ import sys
 from logging import Logger
 
 logfile_prefix = os.path.join(os.getenv("HOME", "/tmp"), "infscale")
-os.makedirs(logfile_prefix)
+os.makedirs(logfile_prefix, exist_ok=True)
 
 level = getattr(logging, os.getenv("LOG_LEVEL", "NOTSET"))
 formatter = logging.Formatter(
