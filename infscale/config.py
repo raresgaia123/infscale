@@ -3,16 +3,18 @@
 from typing import Optional
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 RAW_KEY_PARTITIONS = "partitions"
-RAW_KEY_MICRO_BATCH_SIZE = "micro_batch_size"
+RAW_KEY_MINI_BATCH_SIZE = "mini_batch_size"
 RAW_KEY_PRE_TRAINED = "pre_trained"
 RAW_KEY_DEVICES = "devices"
 RAW_KEY_REPETITION = "repetition"
 
+RAW_KEY_INDEX = "index"
+RAW_KEY_NUM_SHARDS = "num_shards"
 
-DEFAULT_MICRO_BATCH_SIZE = 8
+DEFAULT_MINI_BATCH_SIZE = 8
 
 
 class Partitions(BaseModel):
@@ -20,14 +22,55 @@ class Partitions(BaseModel):
 
     index_shards_map: dict
 
+    _indexes: list = PrivateAttr([])
+    _num_shards: int = PrivateAttr(-1)
+    _name: str = PrivateAttr(None)
+
     def get_all(self):
         """Return all pairs of parition index and its shards."""
         index_shards_pairs = []
         for index in sorted(self.index_shards_map.keys()):
-            shards = self.index_shards_map[index]
-            index_shards_pairs.append((index, shards))
+            num_shards = self.index_shards_map[index]
+            index_shards_pairs.append((index, num_shards))
 
         return index_shards_pairs
+
+    def get_partition_indexes(self) -> list[int]:
+        """Return indexes of partitions."""
+        if len(self._indexes) > 0:
+            return self._indexes
+
+        self._indexes = list(sorted(self.index_shards_map.keys()))
+
+        return self._indexes
+
+    def get_num_shards(self) -> int:
+        """Return the total number of shards in partitions."""
+        if self._num_shards > 0:
+            return self._num_shards
+
+        self._num_shards = 0
+        for _, v in self.index_shards_map.items():
+            self._num_shards += v
+
+        return self._num_shards
+
+    def get_name(self) -> str:
+        """Return name of the partitions.
+
+        The name is composed with index and number of shards.
+        """
+        if self._name:
+            return self._name
+
+        subnames = []
+        for index in sorted(self.index_shards_map.keys()):
+            num_shards = self.index_shards_map[index]
+            subnames.append(f"{index}:{num_shards}")
+
+        self._name = "-".join(subnames)
+
+        return self._name
 
 
 class Config(BaseModel):
@@ -41,7 +84,7 @@ class Config(BaseModel):
         super().__init__(**transformed_config)
 
     partitions: Partitions
-    micro_batch_size: Optional[int] = Field(default=DEFAULT_MICRO_BATCH_SIZE)
+    mini_batch_size: Optional[int] = Field(default=DEFAULT_MINI_BATCH_SIZE)
     pre_trained: Optional[bool] = Field(defaut=False)
     devices: Optional[list[str]] = Field(default=[])
     repetition: Optional[int] = Field(default=1)
@@ -55,9 +98,7 @@ def read_config(filename: str) -> dict:
 
 def transform_config(raw_config: dict) -> dict:
     """Transform config."""
-    micro_batch_size = raw_config.get(
-        RAW_KEY_MICRO_BATCH_SIZE, DEFAULT_MICRO_BATCH_SIZE
-    )
+    mini_batch_size = raw_config.get(RAW_KEY_MINI_BATCH_SIZE, DEFAULT_MINI_BATCH_SIZE)
     pre_trained = raw_config.get(RAW_KEY_PRE_TRAINED, False)
 
     devices = raw_config.get(RAW_KEY_DEVICES, [])
@@ -66,7 +107,7 @@ def transform_config(raw_config: dict) -> dict:
     index_shards_map = transform_partitions(raw_config[RAW_KEY_PARTITIONS])
 
     config_data = {
-        RAW_KEY_MICRO_BATCH_SIZE: micro_batch_size,
+        RAW_KEY_MINI_BATCH_SIZE: mini_batch_size,
         RAW_KEY_PRE_TRAINED: pre_trained,
         RAW_KEY_DEVICES: devices,
         RAW_KEY_REPETITION: repetition,
@@ -82,8 +123,8 @@ def transform_partitions(raw_partitions_config: dict):
 
     index_shards_map = {}
     for raw_index_shards in raw_partitions_config:
-        index = raw_index_shards["index"]
-        shards = raw_index_shards["shards"]
+        index = raw_index_shards[RAW_KEY_INDEX]
+        shards = raw_index_shards[RAW_KEY_NUM_SHARDS]
 
         if index == 0:
             index_zero_found = True

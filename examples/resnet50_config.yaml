@@ -1,10 +1,10 @@
 ---
 partitions:
   - index: 0
-    shards: 1
+    num_shards: 1
   - index: 6
-    shards: 1
-micro_batch_size: 8
+    num_shards: 1
+mini_batch_size: 8
 pre_trained: true
 devices:
   - cuda:0

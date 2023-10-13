@@ -8,6 +8,8 @@ import torch
 import torch.distributed.rpc as rpc
 import torch.nn as nn
 from infscale import get_logger
+from infscale.config import Partitions
+from infscale.pipeline.constants import PARTITION_ID, SHARD_ID
 from infscale.pipeline.util import recv_tensor, send_tensor
 
 
@@ -20,14 +22,12 @@ class CNNShardBase(nn.Module):
 
         self.layers = [m.to(device) if isinstance(m, nn.Module) else m for m in layers]
         self.device = device
-        self.shard_index = (
-            kwargs["sid"] if "sid" in kwargs else None
-        )  # index of the shard in the global set of shards
-        self.partition_index = (
-            kwargs["pid"] if "pid" in kwargs else None
-        )  # index of the partition of layers beared by this shard
+        # index of the partition of layers beared by this shard
+        self.partition_index = kwargs.get(PARTITION_ID, None)
+        # index of the shard in the global set of shards
+        self.shard_index = kwargs.get(SHARD_ID, None)
 
-        logger_name = f"shard-sid{self.shard_index}-pid{self.partition_index}"
+        logger_name = f"shard-pid{self.partition_index}-sid{self.shard_index}"
         self.logger = get_logger(logger_name)
 
         self.logger.info(f"Layers: {self.layers}")
@@ -47,10 +47,12 @@ class CNNShardBase(nn.Module):
             kwargs["data_channel"] if "data_channel" in kwargs else 1
         )
         self.receive_queue = Queue()
-        self.stopFlag = False
+        self.stop_flag = False
 
     def forward(self, x):
         """Run the forwarding logic of all contained layers for one input tensor."""
+        self.logger.debug("calling forward")
+
         t1 = time.time()
         for m in self.layers:
             x = m(x)
@@ -69,10 +71,11 @@ class CNNShardBase(nn.Module):
         self.logger.info("Start running")
 
         ptr = 0
-        while not self.stopFlag:
+        while not self.stop_flag:
             try:
                 index, x = self.receive_queue.get(timeout=3)
-            except:
+            except Exception as e:
+                self.logger.debug(f"exception: {e}")
                 continue
 
             x = x.to(self.device)
@@ -90,8 +93,11 @@ class CNNShardBase(nn.Module):
 
             ptr += 1
 
+        self.logger.debug(f"stop flag = {self.stop_flag}")
+
     def stop(self):
-        self.stopFlag = True
+        """Stop the shard."""
+        self.stop_flag = True
 
     def add_send_ranks(self, ranks):
         """Add a number of shards bearing the downstream stage as destination processes to send output tensors."""
@@ -123,10 +129,12 @@ class CNNShardBase(nn.Module):
             if not resend:
                 index, t = Queue.get(sq)
             try:
+                self.logger.debug(f"start to send a tensor to process {dst}")
+
                 # data movement should depend on communication backend
                 t = t.cpu()
-
                 send_tensor(index, t, dst, self.data_channel_tag)
+
                 self.logger.debug(f"Sended a tensor to process {dst}")
 
             except:
@@ -177,18 +185,15 @@ class CNNShardBase(nn.Module):
 class CNNPipelineCollector:
     """CNNPipelineCollector class."""
 
-    def __init__(self, log_en, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         """Initialize class CNNPipelineCollector."""
         self.logger = get_logger("pipeline-collector")
 
         self.receive_ranks = dict()
         self.receive_queue = Queue()
-        self.control_channel_tag = (
-            kwargs["control_channel"] if "control_channel" in kwargs else 0
-        )
-        self.data_channel_tag = (
-            kwargs["data_channel"] if "data_channel" in kwargs else 1
-        )
+        self.control_channel_tag = kwargs.get("control_channel", 0)
+        self.data_channel_tag = kwargs.get("data_channel", 1)
+        self.stop_flag = False
 
     def add_receive_ranks(self, ranks):
         """Add a number of shards bearing the upstream stage as source processes to receive input tensors"""
@@ -203,7 +208,7 @@ class CNNPipelineCollector:
         """The main function for a receiving thread"""
         self.logger.debug(f"Start receiving from process {src}")
 
-        while True:
+        while not self.stop_flag:
             try:
                 index, t = recv_tensor(src, self.data_channel_tag)
             except:
@@ -225,6 +230,10 @@ class CNNPipelineCollector:
         ret = res
         return [t[1] for t in ret]
 
+    def stop(self):
+        """Stop pipeline collector."""
+        self.stop_flag = True
+
 
 class CNNPipeline(nn.Module):
     """
@@ -235,11 +244,10 @@ class CNNPipeline(nn.Module):
 
     def __init__(
         self,
-        split_size,
+        mini_batch_size,
         workers,
         layers,
-        partitions,
-        shards,
+        partitions: Partitions,
         devices,
         backend,
         *args,
@@ -247,46 +255,50 @@ class CNNPipeline(nn.Module):
     ):
         super().__init__()
 
+        self.logger = get_logger("pipeline")
+
         self.control_channel_tag = 0
         self.data_channel_tag = 1
         self.comm_backend = backend
-        self.split_size = split_size
+        self.split_size = mini_batch_size
         self.buffer_device = devices[0]
         self.collector = CNNPipelineCollector(
-            log_en=kwargs["logging"] if "logging" in kwargs else False,
             args=(),
             kwargs=kwargs,
         )
 
         layer_partitions = []
-        partitions = [0] + partitions + [len(layers)]
-        for i in range(len(partitions) - 1):
-            layer_partitions.append(layers[partitions[i] : partitions[i + 1]])
+        indexes = partitions.get_partition_indexes()
+        assert indexes[-1] < len(layers)
 
-        assert len(workers) >= len(shards)
-        assert len(devices) >= len(shards)
+        indexes = indexes + [len(layers)]
+        for i in range(len(indexes) - 1):
+            layer_partitions.append(layers[indexes[i] : indexes[i + 1]])
+
+        assert len(workers) >= partitions.get_num_shards()
+        assert len(devices) >= partitions.get_num_shards()
         self.shards_refs = [[] for i in range(len(layer_partitions))]
         self.shards_ranks = [[0]] + [[] for i in range(len(layer_partitions))] + [[0]]
 
-        # place shards according to configuration
-        for i in range(len(shards)):
-            rank = i + 1
-            partition_id = shards[i] - 1
-            shard_layers = layer_partitions[partition_id]
-            kwargs["pid"] = partition_id + 1
-            kwargs["sid"] = i
-            rref = rpc.remote(
-                workers[i],
-                CNNShardBase,
-                args=(
-                    devices[i],
-                    shard_layers,
+        rank = 0
+        for i, (index, num_shards) in enumerate(partitions.get_all()):
+            shard_layers = layer_partitions[i]
+            kwargs["pid"] = i + 1
+            for sid in range(num_shards):
+                rank += 1
+                kwargs["sid"] = sid
+                rref = rpc.remote(
+                    workers[rank - 1],
+                    CNNShardBase,
+                    args=(
+                        devices[rank - 1],
+                        shard_layers,
+                    )
+                    + args,
+                    kwargs=kwargs,
                 )
-                + args,
-                kwargs=kwargs,
-            )
-            self.shards_refs[partition_id].append(rref)
-            self.shards_ranks[partition_id + 1].append(rank)
+                self.shards_refs[i].append(rref)
+                self.shards_ranks[i + 1].append(rank)
 
         # connect shards according to model dependencies
         for i in range(1, len(layer_partitions) + 1):
@@ -301,16 +313,27 @@ class CNNPipeline(nn.Module):
         self.collector.add_receive_ranks(self.shards_ranks[-2])
 
     def forward(self, xs):
-        # Split the input batch xs into micro-batches, and distribute them across the shards of the first stage
+        """Distribute mini batches across the shards of the first stage.
+
+        The function first splits the input batch into mini-batches,
+        and distribution takes place afterwards.
+        """
+        self.logger.debug("calling foward")
+
         p = 0
         mini_batches = xs.split(self.split_size, dim=0)
         for index, x in enumerate(mini_batches):
+            self.logger.debug(f"processing mini batch {index}")
             t = x
             if self.comm_backend == "nccl":
                 t = t.to(self.buffer_device)
             p = p % len(self.shards_ranks[1])
 
+            self.logger.debug(
+                f"sending mini batch {index} to {self.shards_ranks[1][p]}"
+            )
             send_tensor(index, t, self.shards_ranks[1][p], self.data_channel_tag)
+            self.logger.debug(f"sent mini batch {index} to {self.shards_ranks[1][p]}")
             p += 1
 
         res = self.collector.get_res(len(mini_batches))
@@ -318,6 +341,13 @@ class CNNPipeline(nn.Module):
         return torch.cat(res, dim=0)
 
     def __del__(self):
-        for i in range(len(self.shards_refs)):
+        """Clean up shard references."""
+        self.logger.debug("calling __del__")
+
+        # stop proceses in a reverse order
+        # to avoid communication error when processes call recv function
+        self.collector.stop()
+
+        for i in reversed(range(len(self.shards_refs))):
             for rref in self.shards_refs[i]:
                 rref.rpc_async().stop()
