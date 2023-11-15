@@ -16,7 +16,7 @@ formatter = logging.Formatter(
 logger_registry = set()
 
 
-def get_logger(name: str) -> Logger:
+def get_logger(name: str = __name__) -> Logger:
     """Return a logger with a given logger name.
 
     A log file is created with the name under $HOME/infscale folder.
