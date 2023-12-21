@@ -5,6 +5,8 @@ import os
 import sys
 from logging import Logger
 
+from infscale.version import VERSION as __version__  # noqa: F401
+
 logfile_prefix = os.path.join(os.getenv("HOME", "/tmp"), "infscale")
 os.makedirs(logfile_prefix, exist_ok=True)
 

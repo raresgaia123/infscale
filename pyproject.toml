@@ -4,19 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name="infscale"
-version = "0.0.1"
+dynamic = ["version"]
 authors = [{ name="Infscale Maintainers", email="infscale-github-owners@cisco.com" }]
 description="This package is a python library to serve ML model in the infscale system"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "accelerate >= 0.24.1",
+    "cloudpickle >= 3.0.0",
+    "datasets >= 2.14.6",
     "pydantic >= 2.4.2",
     "torch == 2.0.1",
     "torchvision >= 0.15.2",
-    "transformers >= 4.30.2",
-    "accelerate >= 0.24.1",
-    "datasets >= 2.14.6",
-    "cloudpickle >= 3.0.0"
+    "transformers >= 4.30.2"
 ]
 
 [project.optional-dependencies]
@@ -29,3 +29,6 @@ dev = [
     "pytest",
     "python-lsp-server",
 ]
+
+[tool.setuptools.dynamic]
+version = {attr = "infscale.__version__"}
