@@ -7,6 +7,7 @@ from grpc.aio import ServicerContext
 from infscale import get_logger
 from infscale.constants import CONTROLLER_PORT, GRPC_MAX_MESSAGE_LENGTH
 from infscale.controller.agent_context import AgentContext
+from infscale.monitor.gpu import GpuMonitor
 from infscale.proto import management_pb2 as pb2
 from infscale.proto import management_pb2_grpc as pb2_grpc
 
@@ -66,8 +67,13 @@ class Controller:
 
     async def handle_status(self, request: pb2.Status) -> None:
         """Handle worker status message."""
-        # TODO: implement this
-        logger.info("not implemented")
+        gpu_stats = GpuMonitor.proto_to_stats(request.gpu_stats)
+        logger.debug(f"gpu_stats = {gpu_stats}")
+
+        vram_stats = GpuMonitor.proto_to_stats(request.vram_stats)
+        logger.debug(f"vram_stats = {vram_stats}")
+
+        # TODO: use gpu and vram status to schedule deployment
 
     def reset_agent_context(self, id: str) -> None:
         """Remove agent context from contexts dictionary."""

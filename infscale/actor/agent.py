@@ -11,6 +11,7 @@ import torch
 from infscale import get_logger
 from infscale.actor.worker import Worker
 from infscale.constants import GRPC_MAX_MESSAGE_LENGTH, HEART_BEAT_PERIOD
+from infscale.monitor.gpu import GpuMonitor, GpuStat, VramStat
 from infscale.proto import management_pb2 as pb2
 from infscale.proto import management_pb2_grpc as pb2_grpc
 
@@ -52,6 +53,8 @@ class Agent:
 
         self.stub = pb2_grpc.ManagementRouteStub(self.channel)
 
+        self.gpu_monitor = GpuMonitor()
+
     async def run(self):
         """Start the agent."""
         logger.info("run agent")
@@ -71,8 +74,14 @@ class Agent:
         # create a task to send heart beat periodically
         _ = asyncio.create_task(self.heart_beat())
 
-        # TODO: revisit launch later; currently it doesn't work
-        # self.launch()
+        # create a task to send status in an event-driven fashion
+        _ = asyncio.create_task(self.report())
+
+        self.monitor()
+
+        # TODO: revisit launch later
+        #       launch may need to be executed whenever manifest is fetched
+        self.launch()
 
         # wait forever
         await asyncio.Event().wait()
@@ -96,7 +105,8 @@ class Agent:
             process = mp.Process(target=w.run, args=(), daemon=True)
             self._workers[local_rank] = WorkerMetaData(pipe, process)
 
-        os.environ.pop(ENV_CUDA_VIS_DEVS)
+        if self.n_workers > 0:
+            os.environ.pop(ENV_CUDA_VIS_DEVS)
 
     def configure(self):
         """Configure workers."""
@@ -110,6 +120,26 @@ class Agent:
             logger.info(f"terminate worker {rank}")
             wmd.process.terminate()
 
+    async def report(self):
+        """Report status about resources and workers to controller."""
+        while True:
+            gpu_stats, vram_stats = await self.gpu_monitor.metrics()
+            gpu_msg_list = GpuMonitor.stats_to_proto(gpu_stats)
+            vram_msg_list = GpuMonitor.stats_to_proto(vram_stats)
+
+            status_msg = pb2.Status()
+            status_msg.id = self.id
+            status_msg.gpu_stats.extend(gpu_msg_list)
+            status_msg.vram_stats.extend(vram_msg_list)
+            # TODO: set cpu stat and ram stat into status message
+
+            self.stub.update(status_msg)
+
     def monitor(self):
-        """Monitor workers."""
-        pass
+        """Monitor workers and resources."""
+        _ = asyncio.create_task(self._monitor_gpu())
+        # TODO: (priority: high) monitor workers
+        # TODO: (priority: low) monitor cpu resources (cpu and ram)
+
+    async def _monitor_gpu(self):
+        await self.gpu_monitor.start()

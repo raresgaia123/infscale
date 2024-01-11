@@ -1,8 +1,24 @@
+# Prerequisites
+Python 3.10+ is needed. We recommend to use pyenv to set up an environment.
+```
+pyenv install 3.10.12
+pyenv global 3.10.12
+```
+
+Note that Python 3.10+ needs openssl1.1.1 and make sure openssl1.1.1+ is installed in your system.
+
 # Installation
 We use Makefile for installation and uninstallation. Run `make install` to install infscale and `make uninstall` to delete it.
+For manual installation, run the following under the top folder (`infscale`):
+```
+pip install .
+```
+This will install dependencies as well as infscale package.
 
-# To Run Without Installation
-This is useful during local development. Under `infscale` (top folder), run the following command
+# Running development code
+This is useful during local development. As a prerequisite, dependencies should be resolved.
+Thus, it is necessary to install infscale once (see [Installation](#Installation)).
+Once dependencies are resolved, under `infscale` (top folder), run the following command:
 ```
 python -m infscale
 ```
@@ -18,6 +34,19 @@ Commands:
   agent       Run agent.
   controller  Run controller.
 ```
+
+# Quickstart
+For minimal execution of infscale, one controller and one agent are needed.
+Run controller first and then agent, each on a separate terminal.
+```
+python -m infscale controller
+```
+
+```
+python -m infscale agent id123
+```
+
+To see some log messages, add `LOG_LEVEL=DEBUG` before each of the above command.
 
 # Below Outdated
 

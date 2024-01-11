@@ -4,16 +4,6 @@ package management;
 
 import "google/protobuf/empty.proto";
 
-enum MemoryType {
-  RAM = 0;  // memory for CPU
-  VRAM = 1; // memory for GPU
-}
-
-enum ComputeType {
-  CPU = 0;
-  GPU = 1;
-}
-
 // route for management between controller and agent
 // agent is client and controller is server (servicer)
 service ManagementRoute {
@@ -44,39 +34,39 @@ message RegRes {
 // status contains details about resources and workers managed by an agent
 message Status {
   string id = 1; // agent's id
-  repeated ComputeStatus compute_statuses = 2;
-  repeated MemoryStatus memory_statuses = 3;
-  repeated WorkerStatus worker_statuses = 4;
+  repeated GpuStat gpu_stats = 2;
+  repeated VramStat vram_stats = 3;
+  repeated CpuStat cpu_stats = 4;
+  RamStat ram_stat = 5;
+  repeated WorkerStatus worker_statuses = 6;
 }
 
-message ComputeID {
-  ComputeType type = 1; // CPU or GPU
-  int32 id = 2; // resource id of the given type
-                // 0: any in case of CPU;
-                // 1...n: specific device index for a given type
-                // CPU type has a specific id other than 0, it means cpu pinning
-}
-
-message MemoryID {
-  MemoryType type = 1; // RAM or VRAM
-  int32 id = 2; // resource id of the given type
-                // 0: default value for RAM
-                // 1...n: specific device index for a given type
-                // since GPU is coupled with VRAM, GPU id and VRAM id should be matched
-}
-
-// computestatus contains status information about compute
-message ComputeStatus {
-  ComputeID cid = 1; // Compute identifier
-  string sub_type = 2; // in case of GPU, GPU sub type is specified
+// gpustat contains status information about GPU
+message GpuStat {
+  int32 id = 1; // GPU identifier; index starts from zero
+  string type = 2; // GPU sub type is specified
   bool used = 3; // specify whether the resource is used or not
+  int32 util = 4; // utilization of the resource
 }
 
-// memorystatus contains status information about memory
-message MemoryStatus {
-  MemoryID mid = 1; // Memory identifier
-  int32 used = 2; // this would be an average value
-  int32 total = 3;
+// vramstat contains status information about VRAM
+message VramStat {
+  int32 id = 1; // VRAM identifier
+  int64 used = 2; // this would be an average value
+  int64 total = 3;
+}
+
+// cpustat contains status information about CPU
+message CpuStat {
+  int32 id = 1; // CPU identifier; CPU: 0..n-1: pinned cpu id; -1: any CPU
+  bool used = 2; // specify whether the resource is used or not
+  int32 util = 3; // utilization of the resource
+}
+
+// ramstat contains status information about RAM
+message RamStat {
+  int64 used = 1; // this would be an average value
+  int64 total = 2;
 }
 
 // workerstatus contains information about worker's status
@@ -85,9 +75,11 @@ message WorkerStatus {
                        // deploy id is an identifier for one deployment
   int32 worker_id = 2; // worker id within deployment; each id is unique within one deployment
   bool healthy = 3;    // true or false
-  ComputeID cid = 4;   // compute id specifies computation device that worker is running
-  MemoryID mid = 5;    // memory id specifies memory device; in case of GPU, it's the same sas compute id
-  Statistics statistics = 6;
+  bool on_gpu = 4;     // boolean value to specifiy whether task (managed by worker) is done on gpu or not
+  int32 cid = 5;       // compute id specifies device id where the task is running
+                       // if on_gpu is false and cid = -1, no cpu pinning
+  int32 mid = 6;       // vram id; meaningful only if on_gpu is true
+  Statistics statistics = 7;
 }
 
 // statistics contains 

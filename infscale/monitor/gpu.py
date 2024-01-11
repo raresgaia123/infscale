@@ -1,9 +1,15 @@
 """GPU monitoring class."""
 import asyncio
+import dataclasses
+import json
 from dataclasses import dataclass
 from enum import Enum
+from typing import Union
 
+from google._upb._message import RepeatedCompositeContainer
+from google.protobuf.json_format import MessageToJson, Parse
 from infscale import get_logger
+from infscale.proto import management_pb2 as pb2
 from pynvml import (nvmlDeviceGetComputeRunningProcesses, nvmlDeviceGetCount,
                     nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo,
                     nvmlDeviceGetName, nvmlDeviceGetUtilizationRates, nvmlInit)
@@ -33,7 +39,7 @@ class GpuStat:
     id: int
     type: GpuType
     used: bool
-    utilization: int
+    util: int
 
 
 @dataclass
@@ -52,8 +58,20 @@ class GpuMonitor:
         """Initialize GpuMonitor instance."""
         self.interval = interval
 
-        self.util_ewma = 0
-        self.mem_ewma = 0
+        self.mon_event = asyncio.Event()
+        # TODO: consider computes and mems to mtaintain average (e.g., ewma)
+        #       values to smoothe out jitter due to instantaneous values
+        self.computes = list()
+        self.mems = list()
+
+    async def metrics(self) -> tuple[list[GpuStat], list[VramStat]]:
+        """Return statistics on GPU resources."""
+        # Wait until data refreshes
+        logger.debug("wait for monitor event")
+        await self.mon_event.wait()
+        logger.debug("monitor event is set")
+
+        return self.computes, self.mems
 
     async def start(self):
         """Start to monitor GPU statistics - utilization and vram usage.
@@ -86,6 +104,8 @@ class GpuMonitor:
                     # processes running on gpu
                     processes = nvmlDeviceGetComputeRunningProcesses(handle)
                 except Exception as e:
+                    # TODO: need to catch more specific exception
+                    #       Exception is too generic
                     logger.debug(f"failed to retrieve info for GPU {i}")
                     logger.debug(f"exception: {e}")
                     continue
@@ -101,8 +121,60 @@ class GpuMonitor:
                 used = len(processes) > 0
                 computes[i] = GpuStat(i, dev_type, used, util)
 
-            # TODO: need to work on reporting the stats to controller
-            logger.debug(f"mems: {mems}")
-            logger.debug(f"computes: {computes}")
+            self.mems = mems
+            self.computes = computes
+            # unlbock metrics() call
+            self.mon_event.set()
+            # block metrics() call again
+            self.mon_event.clear()
 
             await asyncio.sleep(self.interval)
+
+    @staticmethod
+    def stats_to_proto(
+        stats: Union[list[GpuStat], list[VramStat]]
+    ) -> Union[None, list[pb2.GpuStat], list[pb2.VramStat]]:
+        """Convert GpuStats or VramStats to a list of protobuf messages."""
+        if not isinstance(stats, list) or len(stats) == 0:
+            return None
+
+        if isinstance(stats[0], GpuStat):
+            pb_msg_obj = pb2.GpuStat
+        elif isinstance(stats[0], VramStat):
+            pb_msg_obj = pb2.VramStat
+        else:
+            return None
+
+        proto = list()
+        for stat in stats:
+            json_str = json.dumps(dataclasses.asdict(stat))
+            message = Parse(json_str, pb_msg_obj())
+            proto.append(message)
+
+        return proto
+
+    @staticmethod
+    def proto_to_stats(
+        proto: Union[list[pb2.GpuStat], list[pb2.VramStat]]
+    ) -> Union[None, list[GpuStat], list[VramStat]]:
+        """Convert a list of protobuf messages to GpuStats or VramStats."""
+        if not isinstance(proto, RepeatedCompositeContainer) or len(proto) == 0:
+            logger.debug("no protobuf message")
+            return None
+
+        if isinstance(proto[0], pb2.GpuStat):
+            target = GpuStat
+        elif isinstance(proto[0], pb2.VramStat):
+            target = VramStat
+        else:
+            logger.debug(f"unknown message: {type(proto[0])}")
+            return None
+
+        stats = list()
+        for msg in proto:
+            json_str = MessageToJson(msg, including_default_value_fields=True)
+            json_obj = json.loads(json_str)
+            inst = target(**json_obj)
+            stats.append(inst)
+
+        return stats
