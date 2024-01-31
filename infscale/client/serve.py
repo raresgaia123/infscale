@@ -1,8 +1,7 @@
 """implementation of serve restapi call."""
 
-import pprint
-
 import yaml
+from infscale.actor.worker import Worker
 from infscale.openapi import ApiClient, Configuration, DefaultApi, ServeSpec
 
 
@@ -27,3 +26,7 @@ def serve(host: str, port: int, specfile: str):
             # pprint(api_response)
         except Exception as e:
             print(f"Exception during serve api call: {e}")
+
+    w = Worker(0, None, spec_dict)
+
+    w.run()

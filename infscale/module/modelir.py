@@ -22,20 +22,29 @@ SOFTWARE.
 
 # This file was modified from
 # https://github.com/SymbioticLab/Oobleck/blob/3b7a0c2f19bff0991e623ffbeb8a5b365853bf3a/oobleck/module/model.py
+from __future__ import annotations
 
 import random
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
+from infscale import get_logger
 from infscale.module.sharding import Sharder
-from infscale.module.zoo import Zoo
+
+if TYPE_CHECKING:
+    from infscale.module.model_metadata import BaseModelMetaData
 
 RANDOM_SEED = 42
 
+logger = get_logger()
 
-class ModelWrapper:
+
+class ModelIR:
     """
-    A wrapper model class of Hugging Face model downloaded from Hugging Face Hub (https://huggingface.co/models).
+    An intermediate representation class for HuggingFace model.
+
+    HuggingFace models are downloaded from Hugging Face Hub
+    (https://huggingface.co/models).
 
     It runs huggingface.utils.fx.symbolic_trace to get GraphModule
     and shard it to multiple GraphModules for pipeline execution.
@@ -43,22 +52,22 @@ class ModelWrapper:
     Model initialization must be done before distributed initialization.
     """
 
-    def __init__(self, model_name: str, sample_inputs: dict[str, Any]):
+    def __init__(self, mmd: BaseModelMetaData, sample_inputs: dict[str, Any]):
         """Initialize the class."""
         # Initialize CPU seed
         random.seed(RANDOM_SEED)
         torch.default_generator.manual_seed(RANDOM_SEED)
 
-        mmd = Zoo.get_model_metadata(model_name)
-
         self.sample_inputs = sample_inputs
         self.trace_input_names = list(sample_inputs.keys())
 
         self.layers = Sharder.shard(mmd, self.trace_input_names)
-        self.model_name = model_name
+        self.model_name = mmd.name
 
         self.total_num_params = sum(
             sum(p.numel() for p in layer.parameters()) for layer in self.layers
         )
 
         self.model_args = mmd.config
+
+        logger.debug(f"# of layers = {len(self.layers)}")

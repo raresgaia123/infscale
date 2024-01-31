@@ -1,5 +1,6 @@
 """Config parser."""
 
+from dataclasses import dataclass
 from typing import Optional
 
 import yaml
@@ -143,3 +144,60 @@ def transform_partitions(raw_partitions_config: dict):
         raise ValueError("config the first partition (index 0) not found")
 
     return Partitions(index_shards_map=index_shards_map)
+
+
+"""
+TODO: The following is temporary serving config dataclasses.
+      They should be revised over time.
+"""
+
+
+@dataclass
+class Stage:
+    """Class for keeping stage information for worker."""
+
+    start: int  # start layer number
+    end: int  # end layer number
+    id: str  # <stage number>-<replica number>, s: serving server
+
+
+@dataclass
+class Dataset:
+    """Specification about dataset.
+
+    We only support hugggingface dataset currently.
+    """
+
+    path: str
+    name: str
+    split: str
+
+
+@dataclass
+class ServeConfig:
+    """Class for keeping config values of serve specification."""
+
+    name: str
+    model: str
+
+    stage: Stage
+
+    dataset: Dataset
+
+    flow_graph: dict[str, list[str]]
+
+    rank_map: dict[str, int]
+
+    nfaults: int = 0  # no of faults to tolerate, default: 0 (no fault tolerance)
+
+    mini_batch_size: int = 8
+
+    def __post_init__(self):
+        """Convert stage dict into stage object."""
+        self.dataset = Dataset(**self.dataset)
+        self.stage = Stage(**self.stage)
+
+
+def parse_serve_config(data: dict) -> ServeConfig:
+    """Return ServeConfig object after parsing data."""
+    return ServeConfig(**data)

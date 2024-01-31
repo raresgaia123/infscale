@@ -1,0 +1,31 @@
+---
+name: resnet152_example
+model: microsoft/resnet-152
+nfaults: 1
+# the following entries are for local development only
+# after development is done, they need to be revised accordingly
+# to automate building flow_graph, etc.
+mini_batch_size: 8
+
+stage:
+  start: 0
+  end: 25
+  id: 0-0  # <stage number>-<replica number>, s: serving server
+
+flow_graph:
+  s-0:
+    - 0-0
+  0-0:
+    - 1-0
+  1-0:
+    - s-0
+
+rank_map: # run worker in this rank order
+  s-0: 0
+  0-0: 1
+  1-0: 2
+
+dataset: # huggingface dataset
+  path: "cifar10"
+  name: ""
+  split: test

@@ -1,4 +1,0 @@
----
-name: resnet152_example
-model: microsoft/resnet-152
-nfaults: 1
