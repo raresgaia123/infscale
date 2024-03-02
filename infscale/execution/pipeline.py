@@ -2,25 +2,20 @@
 
 import asyncio
 import os
-import random
-from collections.abc import Iterator
 
 import torch
 import torch.distributed as dist
 from infscale import get_logger
 from infscale.config import ServeConfig
-from infscale.execution.comm import TensorReceiver, TensorSender
+from infscale.execution.router import Router
 from infscale.execution.stage import Stage
 from infscale.module.dataset import HuggingFaceDataset
 from infscale.module.modelir import ModelIR
-from torch.utils.data import DataLoader
-
-logger = get_logger()
 
 MASTER_ADDR = "127.0.0.1"
 MASTER_PORT = "29500"
 
-DEFAULT_ROUTER_QUEUE_SIZE = 3
+logger = get_logger()
 
 
 class Pipeline:
@@ -70,138 +65,78 @@ class Pipeline:
 
         self.stage = Stage(my_id, layers)
 
+    async def _server_send(self, router: Router):
+        logger.debug("start to send requests")
+        seqno = 0
+        while True:
+            batch = self.dataset.next_batch()
+            if batch is None:
+                break
+
+            logger.debug(f"sending batch {seqno}, batch: {batch}")
+            # send batch to the first stage
+            await router.tx_q.put((batch, seqno))
+            seqno += 1
+
+        logger.debug("_server_send task done")
+
+    async def _server_recv(self, router: Router, max_seqno: int = -1):
+        """
+        Receive inference results from the last stage.
+
+        max_seqno: if it's -1, run forever;
+                   come out of loop if seqno is max_seqno
+        """
+        logger.debug("start to receive responses")
+        seqno = -1
+        while max_seqno == -1 or max_seqno != seqno:
+            logger.debug("waiting for response")
+            outputs, seqno = await router.rx_q.get()
+            logger.debug(f"received response for {seqno}: {outputs}")
+
+        logger.debug("_server_recv task done")
+
     async def _run_server(self):
-        async def _send_request(router: Router, data_iter: Iterator):
-            seqno = 0
-            while True:
-                try:
-                    batch = next(data_iter)
-                except StopIteration:
-                    break
-
-                # send batch to the first stage
-                await router.tx_q.put((batch, seqno))
-                seqno += 1
-
-        async def _recv_resp(router: Router, max_seqno: int = -1):
-            """
-            Receive inference results from the last stage.
-
-            max_seqno: if it's -1, run forever;
-                       come out of loop if seqno is max_seqno
-            """
-            seqno = -1
-            while max_seqno == -1 or max_seqno != seqno:
-                outputs, seqno = await router.rx_q.get()
-                logger.info(f"{seqno}: {outputs}")
-
         # create router
         router = Router(self.spec)
-        router.prepare()
+        # router.prepare() # FIXME: see below
 
         # TODO: we read data directly from a dataset right now.
         #       in the future, we need to take dataset from stream as well.
-        dataset_size = len(self.dataset.dataset)
-        dataloader = DataLoader(
-            self.dataset.dataset,
-            self.spec.micro_batch_size,
-            collate_fn=self.dataset.data_collator,
-        )
-        data_iter = iter(dataloader)
+        self.dataset.set_micro_batch_size(self.spec.micro_batch_size)
+        max_seqno = self.dataset.num_of_batches() - 1
 
         # send and recv asynchronously
-        send_task = asyncio.create_task(_send_request(router, data_iter))
-        recv_task = asyncio.create_task(_recv_resp(router, dataset_size - 1))
-        await asyncio.wait([send_task, recv_task])
+        send_task = asyncio.create_task(self._server_send(router))
+        recv_task = asyncio.create_task(self._server_recv(router, max_seqno))
+        logger.debug("created _send_request and _recv_resp tasks")
+
+        # FIXME: afer calling prepare(), asyncio task won't be created somehow.
+        #        as a workaround, calling it is delayed until all the asyncio
+        #        tasks are created. This needs to be fixed.
+        router.prepare()
+        await asyncio.gather(*[send_task, recv_task])
+        logger.debug("inference serving is done")
 
     async def _run_worker(self):
+        logger.debug("start to run worker")
         router = Router(self.spec)
         router.prepare()
         while True:
-            inputs, index = await router.rx_q.get()
-            outputs = self.stage(inputs)
-            await router.tx_q.put((outputs, index))
+            inputs, seqno = await router.rx_q.get()
+            logger.debug(f"received input {seqno} from rx_q")
+
+            with torch.inference_mode():
+                outputs = self.stage(inputs)
+                # if isinstance(inputs, tuple):
+                #     logger.debug(f"len(inputs) = {len(inputs)}")
+                #     outputs = self.stage(*inputs)
+                # else:
+                #     outputs = self.stage(inputs)
+            logger.debug("got output from stage and put output into tx_q")
+            await router.tx_q.put((outputs, seqno))
+            logger.debug("put output into tx_q")
 
     async def run(self):
         """Run pipeline."""
         await self._run()
-
-
-class Router:
-    """Router class."""
-
-    def __init__(self, spec: ServeConfig):
-        """Initialize Router instance."""
-        self._rx_q = asyncio.Queue(DEFAULT_ROUTER_QUEUE_SIZE)  # used in pipeline
-        self._tx_q = asyncio.Queue(DEFAULT_ROUTER_QUEUE_SIZE)  # used in pipeline
-
-        # a collection of ranks that receive data from me
-        self.receiver_ranks: dict[int] = []
-        self.__tx_qs: dict[int, asyncio.Queue] = {}
-
-        # a collection of ranks that send data to me
-        self.sender_ranks: list[int] = []
-        self.__rx_q = asyncio.Queue(DEFAULT_ROUTER_QUEUE_SIZE)
-
-        my_id = spec.stage.id
-        self.rank = spec.rank_map[my_id]
-        for k, v in spec.flow_graph.items():
-            if my_id == k:  # I am a sender to v
-                for other_id in v:
-                    rank = spec.rank_map[other_id]
-                    self.receiver_ranks.append(rank)
-                    self.__tx_qs[rank] = asyncio.Queue(DEFAULT_ROUTER_QUEUE_SIZE)
-            elif my_id in v:  # I am a receiver from k
-                self.sender_ranks.append(spec.rank_map[k])
-
-    @property
-    def rx_q(self):
-        """Return receiver queue."""
-        return self._rx_q
-
-    @property
-    def tx_q(self):
-        """Return transmit queue."""
-        return self._tx_q
-
-    def prepare(self):
-        """Create asyncio tasks for sending and receiving."""
-        for rank in self.receiver_ranks:
-            # TODO: revise hard-coded device
-            _ = asyncio.create_task(self._send(rank, torch.device("cpu")))
-
-        for rank in self.sender_ranks:
-            # TODO: revise hard-coded device
-            _ = asyncio.create_task(self._recv(rank, torch.device("cpu")))
-
-    async def _recv(self, rank: int, device: torch.device):
-        receiver = TensorReceiver(rank, device)
-        while True:
-            tensor, index = receiver.recv()
-            await self.__rx_q.put((tensor, index))
-
-    async def _send(self, rank: int, device: torch.device):
-        sender = TensorSender(rank, device)
-        tx_q = self.__tx_qs[rank]
-
-        while True:
-            tensor, index = await tx_q.get()
-            sender.send(tensor, index)
-
-    async def _recv_arbiter(self):
-        while True:
-            tensor, index = await self.__rx_q.get()
-            # TODO: introduce a prioritization policy
-            await self._rx_q.put((tensor, index))
-
-    async def _send_arbiter(self):
-        while True:
-            tensor, index = await self._tx_q.get()
-            # TODO: introduce a prioritization policy
-            #       current default policy is to choose receiving rank randomly
-
-            # TODO: choosing a rank randomly by converting dictionary keys into
-            #       a list can be a performance bottleneck; look into it later.
-            rank = random.choice(list(self.__tx_qs.keys()))
-
-            self.__tx_qs[rank].put((tensor, index))

@@ -23,12 +23,15 @@ SOFTWARE.
 # This file was modified from
 # https://github.com/SymbioticLab/Oobleck/blob/3b7a0c2f19bff0991e623ffbeb8a5b365853bf3a/oobleck/execution/dataset.py
 
+import math
 from itertools import chain
-from typing import Optional, Tuple, Type
+from typing import Optional, Tuple, Type, Union
 
 import torch
 from datasets import Dataset, load_dataset
 from infscale.module.model_metadata import BaseModelMetaData, ModelGroup
+from torch import Tensor
+from torch.utils.data import DataLoader
 from torchvision.transforms import (CenterCrop, Compose, Normalize, Resize,
                                     ToTensor)
 from transformers import AutoImageProcessor, AutoTokenizer
@@ -89,6 +92,45 @@ class HuggingFaceDataset:
 
         trace_input = next(iter(self.dataset))
         self.sample = self.data_collator([trace_input])
+
+        self.data_iter = None
+        self.model_group = mmd.model_group
+
+    def set_micro_batch_size(self, micro_batch_size: int) -> None:
+        """Set micro batch size."""
+        self.micro_batch_size = micro_batch_size
+
+    def next_batch(self) -> Union[Tuple[Tensor, Tensor], None]:
+        """Return next data tensor.
+
+        Once all the data is consumed, it returns None.
+        """
+        if self.data_iter is None:
+            dataloader = DataLoader(
+                self.dataset,
+                self.micro_batch_size,
+                collate_fn=self.data_collator,
+            )
+            self.data_iter = iter(dataloader)
+
+        try:
+            batch = next(self.data_iter)
+        except StopIteration:
+            self.data_iter = None
+            return None
+
+        if self.model_group == ModelGroup.IMAGE:
+            return (batch["pixel_values"], batch["labels"])
+        else:
+            # TODO: implement this later
+            raise NotImplementedError
+
+    def num_of_batches(self) -> int:
+        """Return the number of batches from dataset.
+
+        set_micro_batch_size() must be called before calling this function.
+        """
+        return math.ceil(len(self.dataset) / self.micro_batch_size)
 
     @staticmethod
     def create_image_dataset(

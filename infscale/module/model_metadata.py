@@ -1,9 +1,10 @@
 """ModelMetaData."""
+import os
 from abc import abstractmethod
 from enum import Enum
 from typing import List
 
-from accelerate import init_empty_weights
+from accelerate import disk_offload
 from infscale import get_logger
 from transformers import (AutoModelForCausalLM,
                           AutoModelForImageClassification,
@@ -13,6 +14,8 @@ from transformers import (AutoModelForCausalLM,
 AutoModelType = (
     AutoModelForPreTraining | AutoModelForCausalLM | AutoModelForImageClassification
 )
+
+OFFLOAD_FOLDER_PREFIX = "/tmp/infscale/offload/"
 
 logger = get_logger()
 
@@ -37,6 +40,26 @@ class BaseModelMetaData:
         self.model: AutoModelType = None
         self.split_points: List[str] = None
 
+        self.pid = os.getpid()
+
+    def _offload_model_to_disk(self, auto_model_type: AutoModelType) -> PreTrainedModel:
+        model = auto_model_type.from_pretrained(
+            self.name,
+            device_map="cpu",
+            offload_folder=OFFLOAD_FOLDER_PREFIX + self.name,
+            low_cpu_mem_usage=True,
+        ).cpu()
+
+        offload_foler_path = os.path.join(
+            OFFLOAD_FOLDER_PREFIX,
+            str(self.pid),
+            self.name,
+        )
+        # offload model to disk
+        disk_offload(model, offload_dir=offload_foler_path)
+
+        return model
+
     @abstractmethod
     def get_model(self) -> PreTrainedModel:
         """Abstract method to get model."""
@@ -60,8 +83,7 @@ class Gpt2ModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        with init_empty_weights():
-            self.model = AutoModelForPreTraining.from_config(self.config)
+        self.model = self._offload_model_to_disk(AutoModelForPreTraining)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -97,8 +119,7 @@ class BertModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        with init_empty_weights():
-            self.model = AutoModelForCausalLM.from_config(self.config)
+        self.model = self._offload_model_to_disk(AutoModelForCausalLM)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -134,8 +155,7 @@ class T5ModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        with init_empty_weights():
-            self.model = AutoModelForPreTraining.from_config(self.config)
+        self.model = self._offload_model_to_disk(AutoModelForPreTraining)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -174,8 +194,7 @@ class VitModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        with init_empty_weights():
-            self.model = AutoModelForImageClassification.from_config(self.config)
+        self.model = self._offload_model_to_disk(AutoModelForImageClassification)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -213,8 +232,7 @@ class ResnetModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        with init_empty_weights():
-            self.model = AutoModelForImageClassification.from_config(self.config)
+        self.model = self._offload_model_to_disk(AutoModelForImageClassification)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
