@@ -6,6 +6,8 @@ import torch
 from infscale import get_logger
 from infscale.config import ServeConfig
 from infscale.execution.comm import TensorReceiver, TensorSender
+from infscale.execution.world import WorldInfo
+from torch.distributed import WorldManager
 
 DEFAULT_QUEUE_SIZE = 3
 
@@ -15,29 +17,34 @@ logger = get_logger()
 class Router:
     """Router class."""
 
-    def __init__(self, spec: ServeConfig):
+    def __init__(
+        self,
+        world_manager: WorldManager,
+        world_info_list: list[WorldInfo],
+        spec: ServeConfig,
+        device=torch.device("cpu"),
+    ):
         """Initialize Router instance."""
+        self.world_manager = world_manager
+        self.device = device
+
         self._rx_q = asyncio.Queue(DEFAULT_QUEUE_SIZE)  # used in pipeline
         self._tx_q = asyncio.Queue(DEFAULT_QUEUE_SIZE)  # used in pipeline
 
-        # a collection of ranks that receive data from me
-        self.receiver_ranks: dict[int] = []
-        self.__tx_qs: dict[int, asyncio.Queue] = {}
+        # a collection of receivers that receive data from me
+        self.receivers: list[WorldInfo] = []
+        self.__tx_qs: dict[WorldInfo, asyncio.Queue] = {}
 
-        # a collection of ranks that send data to me
-        self.sender_ranks: list[int] = []
+        # a collection of senders that send data to me
+        self.senders: list[WorldInfo] = []
         self.__rx_q = asyncio.Queue(DEFAULT_QUEUE_SIZE)
 
-        my_id = spec.stage.id
-        self.rank = spec.rank_map[my_id]
-        for k, v in spec.flow_graph.items():
-            if my_id == k:  # I am a sender to v
-                for other_id in v:
-                    rank = spec.rank_map[other_id]
-                    self.receiver_ranks.append(rank)
-                    self.__tx_qs[rank] = asyncio.Queue(DEFAULT_QUEUE_SIZE)
-            elif my_id in v:  # I am a receiver from k
-                self.sender_ranks.append(spec.rank_map[k])
+        for world_info in world_info_list:
+            if world_info.me == 0:  # I am a sender to other
+                self.receivers.append(world_info)
+                self.__tx_qs[world_info] = asyncio.Queue(DEFAULT_QUEUE_SIZE)
+            else:  # I am a receiver from other
+                self.senders.append(world_info)
 
     @property
     def rx_q(self):
@@ -54,17 +61,22 @@ class Router:
         _ = asyncio.create_task(self._send_arbiter())
         _ = asyncio.create_task(self._recv_arbiter())
 
-        for rank in self.receiver_ranks:
-            # TODO: revise hard-coded device
-            _ = asyncio.create_task(self._send(rank, torch.device("cpu")))
+        for world_info in self.receivers:
+            _ = asyncio.create_task(self._send(world_info))
 
-        for rank in self.sender_ranks:
-            # TODO: revise hard-coded device
-            _ = asyncio.create_task(self._recv(rank, torch.device("cpu")))
+        for world_info in self.senders:
+            _ = asyncio.create_task(self._recv(world_info))
 
-    async def _recv(self, rank: int, device: torch.device):
-        logger.debug(f"start to receive tensors from {rank}")
-        receiver = TensorReceiver(rank, device)
+    async def _recv(self, world_info: WorldInfo):
+        logger.debug(
+            f"start to receive tensors from {world_info.other} in world {world_info.name}"
+        )
+        receiver = TensorReceiver(
+            self.world_manager.communicator,
+            world_info.name,
+            world_info.other,
+            self.device,
+        )
         logger.debug("created tensor receiver")
 
         while True:
@@ -74,17 +86,24 @@ class Router:
             await self.__rx_q.put((tensors, index))
             logger.debug(f"put tensors {index} into __rx_q")
 
-    async def _send(self, rank: int, device: torch.device):
-        logger.debug(f"start to send tensors to {rank}")
-        sender = TensorSender(rank, device)
+    async def _send(self, world_info: WorldInfo):
+        logger.debug(
+            f"start to send tensors to {world_info.other} in world {world_info.name}"
+        )
+        sender = TensorSender(
+            self.world_manager.communicator,
+            world_info.name,
+            world_info.other,
+            self.device,
+        )
         logger.debug("created tensor sender")
-        tx_q = self.__tx_qs[rank]
+        tx_q = self.__tx_qs[world_info]
         logger.debug("acquired tx q")
 
         while True:
             tensor, seqno = await tx_q.get()
             logger.debug(f"got tensor {seqno} from __tx_q")
-            sender.send(tensor, seqno)
+            await sender.send(tensor, seqno)
             logger.debug(f"sent tensor {seqno}")
 
     async def _recv_arbiter(self):
@@ -106,8 +125,9 @@ class Router:
 
             # TODO: choosing a rank randomly by converting dictionary keys into
             #       a list can be a performance bottleneck; look into it later.
-            rank = random.choice(list(self.__tx_qs.keys()))
-            logger.debug(f"selected rank {rank} as a reciever")
+            world_info = random.choice(list(self.__tx_qs.keys()))
+            logger.debug(f"world name: {world_info.name}")
+            logger.debug(f"receiver rank: {world_info.other}")
 
-            await self.__tx_qs[rank].put((tensor, seqno))
-            logger.debug(f"put tensor {seqno} to __tx_q for {rank}")
+            await self.__tx_qs[world_info].put((tensor, seqno))
+            logger.debug(f"put tensor {seqno} to __tx_q for {world_info.other}")

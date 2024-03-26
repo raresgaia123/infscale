@@ -15,11 +15,17 @@ stage:
 
 flow_graph:
   s-0:
-    - 0-0
+    - addr: "127.0.0.1"
+      port: 29500
+      peer: 0-0
   0-0:
-    - 1-0
+    - addr: "127.0.0.1"
+      port: 30500
+      peer: 1-0
   1-0:
-    - s-0
+    - addr: "127.0.0.1"
+      port: 31500
+      peer: s-0
 
 rank_map: # run worker in this rank order
   s-0: 0

@@ -175,6 +175,15 @@ class Dataset:
 
 
 @dataclass
+class WorkerInfo:
+    """Specification about worker info in the flow graph."""
+
+    addr: str
+    port: int
+    peer: str
+
+
+@dataclass
 class ServeConfig:
     """Class for keeping config values of serve specification."""
 
@@ -185,9 +194,11 @@ class ServeConfig:
 
     dataset: Dataset
 
-    flow_graph: dict[str, list[str]]
+    flow_graph: dict[str, list[WorkerInfo]]
 
     rank_map: dict[str, int]
+
+    backend: str = "gloo"
 
     nfaults: int = 0  # no of faults to tolerate, default: 0 (no fault tolerance)
 
@@ -197,6 +208,9 @@ class ServeConfig:
         """Convert stage dict into stage object."""
         self.dataset = Dataset(**self.dataset)
         self.stage = Stage(**self.stage)
+        for k in list(self.flow_graph.keys()):
+            for i, item in enumerate(self.flow_graph[k]):
+                self.flow_graph[k][i] = WorkerInfo(**item)
 
 
 def parse_serve_config(data: dict) -> ServeConfig:

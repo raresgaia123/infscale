@@ -1,13 +1,8 @@
 """Communication module."""
-import asyncio
-from asyncio import Queue as AsyncQ
-from queue import Queue as SyncQ
-from threading import Thread
 
 import torch
-import torch.distributed as dist
 from infscale import get_logger
-from infscale.utils import run_async
+from torch.distributed.world_communicator import WorldCommunicator
 
 # from https://github.com/SymbioticLab/Oobleck/blob/develop/oobleck/execution/utils.py#L4-L18
 ID_TO_DTYPE = [
@@ -27,9 +22,6 @@ ID_TO_DTYPE = [
 
 DTYPE_TO_ID = {dtype: id_ for id_, dtype in enumerate(ID_TO_DTYPE)}
 
-KEY_LOOP = "asyncio_event_loop"
-KEY_THD_RX_Q = "thd_rx_q"
-KEY_THD_TX_Q = "thd_tx_q"
 
 logger = get_logger()
 
@@ -40,21 +32,29 @@ class TensorSender:
     This class maintains state related to sending tensors and sends tensors.
     """
 
-    def __init__(self, rank: int, device: torch.device):
+    def __init__(
+        self,
+        communicator: WorldCommunicator,
+        world_name: str,
+        rank: int,
+        device: torch.device,
+    ):
         """Initialize tensor sender instance."""
+        self.communicator = communicator
+        self.world_name = world_name
         self.rank = rank  # destination's rank
         self.device = device
 
         self.sent_tensor_meta = False
 
-    def send(self, tensors: tuple[torch.Tensor], seqno: int) -> None:
+    async def send(self, tensors: tuple[torch.Tensor], seqno: int) -> None:
         """Send tensors to destination rank.
 
         seqno: the seqno of a tensor; will be used to keep track of tensors
         traversing a pipeline.
         """
 
-        def _send_tensor_meta(tensors: tuple[torch.Tensor]) -> None:
+        async def _send_tensor_meta(tensors: tuple[torch.Tensor]) -> None:
             """
             Send meta data for tensor.
 
@@ -62,7 +62,7 @@ class TensorSender:
             t_dim -> t_dtype -> t_shape
             """
             count = torch.LongTensor(data=[len(tensors)]).to(self.device)
-            dist.send(count, self.rank)
+            await self.communicator.send(count, self.world_name, self.rank)
 
             for tensor in tensors:
                 dim = len(tensor.size())
@@ -75,110 +75,48 @@ class TensorSender:
                 t_shape = torch.LongTensor(data=shape).to(self.device)
 
                 # TODO: Make send asynchronous
-                dist.send(t_dim, self.rank)
-                dist.send(t_dtype, self.rank)
-                dist.send(t_shape, self.rank)
+                await self.communicator.send(t_dim, self.world_name, self.rank)
+                await self.communicator.send(t_dtype, self.world_name, self.rank)
+                await self.communicator.send(t_shape, self.world_name, self.rank)
 
         logger.debug("calling send")
         if not self.sent_tensor_meta:
             logger.debug("sending tensor meta data")
             # we only send meta data once
-            _send_tensor_meta(tensors)
+            await _send_tensor_meta(tensors)
             self.sent_tensor_meta = True
             logger.debug("done tensor meta data tx")
 
         logger.debug("sending tensors")
         for tensor in tensors:
-            dist.send(tensor, self.rank)
+            await self.communicator.send(tensor, self.world_name, self.rank)
         logger.debug("sent tensors")
 
         seqno = torch.tensor([seqno], dtype=torch.int).to(self.device)
-        dist.send(seqno, self.rank)
+        await self.communicator.send(seqno, self.world_name, self.rank)
         logger.debug(f"sent seqno {seqno}")
-
-
-class FutureThread(Thread):
-    """A dedicated thread for waiting for future from irecv call.
-
-    We implement this dedicated thread instead of using run_in_executor
-    in asyncio aling with concurrent.futures.ThreadPoolExecutor().
-    The rationale to this decision is that ThreadPoolExecutor causes
-    the creatation of a thread pool every time it's called.
-    Thus, it can be expensive. Since we only use this FutureThread for I/O
-    bounded operations, a dedicated single thread may be sufficient.
-    TODO: need to test the above assumption.
-    """
-
-    def __init__(
-        self,
-        group=None,
-        target=None,
-        name=None,
-        args=(),
-        kwargs=None,
-        *,
-        daemon=None,
-    ):
-        """Initialize an instance."""
-        # call parent constructure method
-        super().__init__(group, target, name, daemon=daemon)
-
-        self._loop = kwargs[KEY_LOOP]
-        self._rx_q: SyncQ = kwargs[KEY_THD_RX_Q]
-        self._tx_q: AsyncQ = kwargs[KEY_THD_TX_Q]
-
-        self._done = False
-
-    def stop(self):
-        """Set a flag to stop the thread."""
-        self._done = True
-
-    def run(self):
-        """Override run function of Thread.
-
-        The function calls wait() method of the Work object and
-        once the message arrives, it returns the message back to
-        the main thread via asyncio's queue.
-
-        The main purpose of doing this is to allow the main thread
-        to get scheduled via asyncio's loop.
-        """
-        while not self._done:
-            work = self._rx_q.get()
-            # blocked until future becomes available
-            res = work.wait()
-            self._rx_q.task_done()
-
-            # res is the rank of src
-            _, _ = run_async(self._tx_q.put(res), self._loop)
 
 
 class TensorReceiver:
     """TensorReceiver class."""
 
-    def __init__(self, rank: int, device: torch.device):
+    def __init__(
+        self,
+        communicator: WorldCommunicator,
+        world_name: str,
+        rank: int,
+        device: torch.device,
+    ):
         """Initialize communication instance."""
+        self.communicator = communicator
+        self.world_name = world_name
         self.rank = rank  # source's rank
         self.device = device
 
         self.buffer: torch.Tensor = None
 
-        self._thd_rx_q = SyncQ()  # regular synchronized queue
-        self._thd_tx_q = AsyncQ()  # asyncio queue
-
-        kwargs = {
-            KEY_LOOP: asyncio.get_running_loop(),
-            KEY_THD_RX_Q: self._thd_rx_q,
-            KEY_THD_TX_Q: self._thd_tx_q,
-        }
-
-        future_thd = FutureThread(kwargs=kwargs, daemon=True)
-        future_thd.start()
-
     async def _recv(self, tensor: torch.LongTensor):
-        work = dist.irecv(tensor, self.rank)
-        self._thd_rx_q.put(work)
-        _ = await self._thd_tx_q.get()
+        await self.communicator.recv(tensor, self.world_name, self.rank)
 
     async def recv(self) -> tuple[tuple[torch.Tensor], int]:
         """Receive tensors from source rank.
