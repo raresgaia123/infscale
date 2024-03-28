@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from accelerate.utils.modeling import set_module_tensor_to_device
 from infscale import get_logger
+from torch.nn import Parameter
 
 if TYPE_CHECKING:
     import torch.fx as fx
@@ -27,6 +28,7 @@ class Stage(nn.Module):
         layers: list[fx.GraphModule],
         device: torch.device = torch.device("cpu"),
         output_parser: Callable = None,
+        modelir=None,
     ):
         """Initialize stage class instance."""
         super().__init__()
@@ -35,6 +37,7 @@ class Stage(nn.Module):
         self.layers = deepcopy(layers)
         self.device = device
 
+        self.modelir = modelir
         self._init_layers()
 
         # An output parser is only useful for the last stage.
@@ -47,7 +50,6 @@ class Stage(nn.Module):
 
     def forward(self, inputs: tuple[Tensor]) -> tuple[Tensor]:
         """Run layers in the stage."""
-        logger.debug(f"calling forward with inputs of type {type(inputs)}")
         for layer in self.layers:
             inputs = layer(*inputs)
 
@@ -57,19 +59,46 @@ class Stage(nn.Module):
 
     def _init_layers(self):
         """Initialize meta layers and move them to a device."""
-        for layer in self.layers:
-            self._init_tensors(layer)
+        model = self.modelir.mmd.load_model()
 
-    def _init_tensors(self, layer: torch.fx.GraphModule):
+        named_parameters = dict()
+        for name, param in model.named_parameters():
+            named_parameters[name] = param
+
+        named_buffers = dict()
+        for name, buffer in model.named_buffers():
+            named_buffers[name] = buffer
+
+        for layer in self.layers:
+            self._init_tensors(layer, named_parameters, named_buffers)
+
+        del named_parameters
+        del named_buffers
+        del model
+
+    def _init_tensors(
+        self,
+        layer: torch.fx.GraphModule,
+        named_parameters: dict[str, Parameter],
+        named_buffers: dict[str, Tensor],
+    ):
         """Initialize meta tensors and move them to a device."""
-        # FIXME: need to update values from pretrained model
-        #        currently random initialization is applied
-        for param_name, param in layer.named_parameters():
+        for name, _ in layer.named_parameters():
+            assert name in named_parameters, f"parameter {name} not found"
+
             set_module_tensor_to_device(
-                layer, param_name, self.device, torch.rand(param.shape)
+                layer,
+                name,
+                self.device,
+                named_parameters[name].data,
             )
 
-        for buffer_name, buffer in layer.named_buffers():
+        for name, _ in layer.named_buffers():
+            assert name in named_buffers, f"buffer {name} not found"
+
             set_module_tensor_to_device(
-                layer, buffer_name, self.device, torch.rand(buffer.shape)
+                layer,
+                name,
+                self.device,
+                named_buffers[name].data,
             )

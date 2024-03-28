@@ -58,6 +58,7 @@ class ModelIR:
         random.seed(RANDOM_SEED)
         torch.default_generator.manual_seed(RANDOM_SEED)
 
+        self.mmd = mmd
         self.sample_inputs = sample_inputs
         self.trace_input_names = list(sample_inputs.keys())
 
@@ -70,5 +71,6 @@ class ModelIR:
 
         self.model_args = mmd.config
         self.output_parser: Union[Callable, None] = mmd.get_output_parser()
+        self.predict_fn: Union[Callable, None] = mmd.get_predict_fn()
 
         logger.debug(f"# of layers = {len(self.layers)}")

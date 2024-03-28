@@ -1,11 +1,13 @@
 """ModelMetaData."""
-import os
 from abc import abstractmethod
 from enum import Enum
 from typing import Callable, List, Union
 
-from accelerate import disk_offload
+from accelerate import (infer_auto_device_map, init_empty_weights,
+                        load_checkpoint_and_dispatch)
+from huggingface_hub import hf_hub_download
 from infscale import get_logger
+from torch import Tensor, nn
 from transformers import (AutoModelForCausalLM,
                           AutoModelForImageClassification,
                           AutoModelForPreTraining, PretrainedConfig,
@@ -14,8 +16,6 @@ from transformers import (AutoModelForCausalLM,
 AutoModelType = (
     AutoModelForPreTraining | AutoModelForCausalLM | AutoModelForImageClassification
 )
-
-OFFLOAD_FOLDER_PREFIX = "/tmp/infscale/offload/"
 
 logger = get_logger()
 
@@ -40,25 +40,24 @@ class BaseModelMetaData:
         self.model: AutoModelType = None
         self.split_points: List[str] = None
 
-        self.pid = os.getpid()
+    def _init_model(self, auto_model_type: AutoModelType):
+        with init_empty_weights():
+            model = auto_model_type.from_config(self.config)
+            return model
 
-    def _offload_model_to_disk(self, auto_model_type: AutoModelType) -> PreTrainedModel:
-        model = auto_model_type.from_pretrained(
-            self.name,
-            device_map="cpu",
-            offload_folder=OFFLOAD_FOLDER_PREFIX + self.name,
-            low_cpu_mem_usage=True,
-        ).cpu()
+    def load_model(self) -> nn.Module:
+        """Load a model from a checkpoint and dispatch it to cpu."""
+        location = hf_hub_download(self.name, "pytorch_model.bin")
 
-        offload_foler_path = os.path.join(
-            OFFLOAD_FOLDER_PREFIX,
-            str(self.pid),
-            self.name,
+        device_map = infer_auto_device_map(self.model)
+        for k in device_map.keys():
+            device_map[k] = "cpu"
+
+        loaded_model = load_checkpoint_and_dispatch(
+            self.model, location, device_map=device_map
         )
-        # offload model to disk
-        disk_offload(model, offload_dir=offload_foler_path)
 
-        return model
+        return loaded_model
 
     @abstractmethod
     def get_model(self) -> PreTrainedModel:
@@ -71,6 +70,10 @@ class BaseModelMetaData:
     @abstractmethod
     def get_output_parser(self) -> Union[Callable, None]:
         """Abstract method to return function to parse output."""
+
+    @abstractmethod
+    def get_predict_fn(self) -> Union[Callable, None]:
+        """Abstract method to return function to predict."""
 
 
 class Gpt2ModelMetaData(BaseModelMetaData):
@@ -87,7 +90,7 @@ class Gpt2ModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        self.model = self._offload_model_to_disk(AutoModelForPreTraining)
+        self.model = self._init_model(AutoModelForPreTraining)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -110,7 +113,11 @@ class Gpt2ModelMetaData(BaseModelMetaData):
 
     def get_output_parser(self) -> Union[Callable, None]:
         """Return function to parse output."""
-        return None
+        raise NotImplementedError
+
+    def get_predict_fn(self) -> Union[Callable, None]:
+        """Return function to predict."""
+        raise NotImplementedError
 
 
 class BertModelMetaData(BaseModelMetaData):
@@ -127,7 +134,7 @@ class BertModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        self.model = self._offload_model_to_disk(AutoModelForCausalLM)
+        self.model = self._init_model(AutoModelForCausalLM)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -150,7 +157,11 @@ class BertModelMetaData(BaseModelMetaData):
 
     def get_output_parser(self) -> Union[Callable, None]:
         """Return function to parse output."""
-        return None
+        raise NotImplementedError
+
+    def get_predict_fn(self) -> Union[Callable, None]:
+        """Return function to predict."""
+        raise NotImplementedError
 
 
 class T5ModelMetaData(BaseModelMetaData):
@@ -167,7 +178,7 @@ class T5ModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        self.model = self._offload_model_to_disk(AutoModelForPreTraining)
+        self.model = self._init_model(AutoModelForPreTraining)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -193,7 +204,11 @@ class T5ModelMetaData(BaseModelMetaData):
 
     def get_output_parser(self) -> Union[Callable, None]:
         """Return function to parse output."""
-        return None
+        raise NotImplementedError
+
+    def get_predict_fn(self) -> Union[Callable, None]:
+        """Return function to predict."""
+        raise NotImplementedError
 
 
 class VitModelMetaData(BaseModelMetaData):
@@ -210,7 +225,7 @@ class VitModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        self.model = self._offload_model_to_disk(AutoModelForImageClassification)
+        self.model = self._init_model(AutoModelForImageClassification)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -235,7 +250,11 @@ class VitModelMetaData(BaseModelMetaData):
 
     def get_output_parser(self) -> Union[Callable, None]:
         """Return function to parse output."""
-        return None
+        raise NotImplementedError
+
+    def get_predict_fn(self) -> Union[Callable, None]:
+        """Return function to predict."""
+        raise NotImplementedError
 
 
 class ResnetModelMetaData(BaseModelMetaData):
@@ -252,7 +271,7 @@ class ResnetModelMetaData(BaseModelMetaData):
         if self.model:
             return self.model
 
-        self.model = self._offload_model_to_disk(AutoModelForImageClassification)
+        self.model = self._init_model(AutoModelForImageClassification)
 
         assert self.model, f"Given model {self.name} is not supported yet."
 
@@ -282,5 +301,18 @@ class ResnetModelMetaData(BaseModelMetaData):
 
         def inner(outputs):
             return outputs["logits"]
+
+        return inner
+
+    def get_predict_fn(self) -> Union[Callable, None]:
+        """Return function to predict."""
+
+        def inner(tensors: tuple[Tensor]) -> list[str]:
+            results = []
+
+            for tensor in tensors:
+                predicted_label = tensor.argmax(-1).item()
+                results.append(self.config.id2label[predicted_label])
+            return results
 
         return inner

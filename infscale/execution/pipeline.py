@@ -44,6 +44,7 @@ class Pipeline:
         if "s" in spec.stage.id:  # it's server
             self.dataset = dataset
             self._run = self._run_server
+            self._predict_fn = modelir.predict_fn
             logger.info("I am server and master")
         else:
             logger.info("I am a worker")
@@ -91,7 +92,7 @@ class Pipeline:
         output_parser = modelir.output_parser if spec.stage.is_last else None
         layers = modelir.layers[start : end + 1]
 
-        self.stage = Stage(my_id, layers, output_parser=output_parser)
+        self.stage = Stage(my_id, layers, output_parser=output_parser, modelir=modelir)
 
     async def _server_send(self, router: Router):
         logger.info("start to send requests")
@@ -101,7 +102,7 @@ class Pipeline:
             if batch is None:
                 break
 
-            logger.info(f"sending batch {seqno}")
+            logger.debug(f"sending batch {seqno}")
             # send batch to the first stage
             await router.tx_q.put((batch, seqno))
             seqno += 1
@@ -118,9 +119,10 @@ class Pipeline:
         logger.info("start to receive responses")
         seqno = -1
         while max_seqno == -1 or max_seqno != seqno:
-            logger.info("waiting for response")
+            logger.debug("waiting for response")
             outputs, seqno = await router.rx_q.get()
-            logger.info(f"received response for {seqno}: {type(outputs)}")
+            results = self._predict_fn(outputs)
+            logger.info(f"response for {seqno}: {results}")
 
         logger.info("_server_recv task done")
 
