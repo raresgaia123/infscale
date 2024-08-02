@@ -62,6 +62,7 @@ class TensorSender:
         self.device = device
 
         self.sent_tensor_meta = False
+        self.seqno = torch.tensor([0], device=self.device, dtype=torch.int64)
 
     async def _send(self, tensor: torch.Tensor) -> None:
         await self.communicator.send(tensor, self.rank, self.world_name)
@@ -80,18 +81,18 @@ class TensorSender:
             sending order of the meta data:
             t_dim -> t_dtype -> t_shape
             """
-            count = torch.LongTensor(data=[len(tensors)]).to(self.device)
+            count = torch.tensor([len(tensors)], device=self.device, dtype=torch.int64)
             await self._send(count)
 
             for tensor in tensors:
                 dim = len(tensor.size())
-                t_dim = torch.LongTensor(data=[dim]).to(self.device)
+                t_dim = torch.tensor([dim], device=self.device, dtype=torch.int64)
 
                 dtype = DTYPE_TO_ID[tensor.dtype]
-                t_dtype = torch.LongTensor(data=[dtype]).to(self.device)
+                t_dtype = torch.tensor([dtype], device=self.device, dtype=torch.int64)
 
                 shape = tensor.size()
-                t_shape = torch.LongTensor(data=shape).to(self.device)
+                t_shape = torch.tensor(shape, device=self.device, dtype=torch.int64)
 
                 # TODO: Make send asynchronous
                 await self._send(t_dim)
@@ -111,8 +112,8 @@ class TensorSender:
             await self._send(tensor)
         logger.debug("sent tensors")
 
-        seqno = torch.tensor([seqno], dtype=torch.int).to(self.device)
-        await self._send(seqno)
+        self.seqno[0] = seqno
+        await self._send(self.seqno)
         logger.debug(f"sent seqno {seqno}")
 
     def is_broken(self) -> bool:
@@ -137,6 +138,7 @@ class TensorReceiver:
         self.device = device
 
         self.buffer: torch.Tensor = None
+        self.seqno = torch.tensor([0], device=self.device, dtype=torch.int64)
 
     async def _recv(self, tensor: torch.Tensor):
         await self.communicator.recv(tensor, self.rank, self.world_name)
@@ -154,22 +156,23 @@ class TensorReceiver:
             receiving order of the meta data:
             t_dim -> t_dtype -> t_shape
             """
-
-            count = torch.LongTensor(data=[0]).to(self.device)
+            count = torch.tensor([0], device=self.device, dtype=torch.int64)
             await self._recv(count)
             num_tensors = count.item()
             tensors: list[torch.Tensor] = []
 
             for _ in range(num_tensors):
-                t_dim = torch.LongTensor(data=[0]).to(self.device)
+                t_dim = torch.tensor([0], device=self.device, dtype=torch.int64)
                 await self._recv(t_dim)
                 t_dim = t_dim.item()
 
-                t_dtype = torch.LongTensor(data=[0]).to(self.device)
+                t_dtype = torch.tensor([0], device=self.device, dtype=torch.int64)
                 await self._recv(t_dtype)
                 t_dtype = ID_TO_DTYPE[t_dtype.item()]
 
-                t_shape = torch.LongTensor([1] * t_dim).to(self.device)
+                t_shape = torch.tensor(
+                    [1] * t_dim, device=self.device, dtype=torch.int64
+                )
                 await self._recv(t_shape)
                 t_shape = t_shape.tolist()
 
@@ -196,9 +199,8 @@ class TensorReceiver:
             await self._recv(tensor)
             recvd[idx] = tensor.clone().detach()
 
-        seqno = torch.LongTensor(data=[0]).to(self.device)
-        await self._recv(seqno)
-        seqno = seqno.item()
+        await self._recv(self.seqno)
+        seqno = self.seqno.item()
         logger.debug(f"received tensors of seqno {seqno}")
 
         return tuple(recvd), seqno
