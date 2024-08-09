@@ -8,6 +8,7 @@ nfaults: 1
 micro_batch_size: 8
 backend: nccl
 device: cuda:0
+fwd_policy: "static"
 
 stage:
   start: -1

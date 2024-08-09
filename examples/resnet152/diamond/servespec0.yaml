@@ -8,6 +8,8 @@ nfaults: 1
 micro_batch_size: 8
 backend: nccl
 device: cuda:0
+# possible options: random, rr (round-robin), shortest, static
+fwd_policy: "shortest"
 
 stage:
   start: -1

@@ -16,7 +16,6 @@
 
 """Router class."""
 import asyncio
-import random
 from collections import deque
 
 import torch
@@ -24,6 +23,7 @@ from infscale import get_logger
 from infscale.config import ServeConfig
 from infscale.execution.comm import TensorReceiver, TensorSender
 from infscale.execution.world import WorldInfo
+from infscale.fwding import random, rr, shortest, static
 from torch.distributed import WorldManager
 
 DEFAULT_QUEUE_SIZE = 3
@@ -53,7 +53,7 @@ class Router:
 
         # a collection of receivers that receive data from me
         self.receivers: list[WorldInfo] = []
-        self.__tx_qs: dict[WorldInfo, asyncio.Queue] = {}
+        self.__tx_qs: list[tuple[WorldInfo, asyncio.Queue]] = []
 
         # a collection of senders that send data to me
         self.senders: list[WorldInfo] = []
@@ -65,7 +65,31 @@ class Router:
                 self.senders.append(world_info)
             else:  # I am a sender to other
                 self.receivers.append(world_info)
-                self.__tx_qs[world_info] = asyncio.Queue(DEFAULT_QUEUE_SIZE)
+                tpl = (world_info, asyncio.Queue(DEFAULT_QUEUE_SIZE))
+                self.__tx_qs.append(tpl)
+
+        self._select_forwarding_policy(spec.fwd_policy)
+
+    def _select_forwarding_policy(self, fwd_policy: str) -> None:
+        match fwd_policy:
+            case "random":
+                logger.info("random forwarding policy selected")
+                self._select = random.select
+
+            case "rr":
+                logger.info("round-robin forwarding policy selected")
+                self._select = rr.select
+
+            case "shortest":
+                logger.info("shortest queue length forwarding policy selected")
+                self._select = shortest.select
+
+            case "static":
+                logger.info("static forwarding policy selected")
+                self._select = static.select
+
+            case _:
+                raise NotImplementedError(f"{fwd_policy}")
 
     @property
     def rx_q(self) -> asyncio.Queue:
@@ -125,7 +149,14 @@ class Router:
             self.device,
         )
         logger.debug("created tensor sender")
-        tx_q = self.__tx_qs[world_info]
+        tx_q = None
+        for wi, q in self.__tx_qs:
+            if wi != world_info:
+                continue
+            tx_q = q
+            break
+
+        assert tx_q is not None, f"no tx queqe found for {world_info}"
         logger.debug("acquired tx q")
 
         while True:
@@ -146,7 +177,12 @@ class Router:
             logger.debug(f"sent tensor {seqno}")
 
         # remove tx queue for the world
-        del self.__tx_qs[world_info]
+        for i, (wi, q) in enumerate(self.__tx_qs):
+            if wi != world_info:
+                continue
+
+            del self.__tx_qs[i]
+            break
 
         await self._handle_orphan_data(tx_q)
 
@@ -193,16 +229,11 @@ class Router:
                 logger.warn("no worker to send data")
                 await asyncio.sleep(DEFAULT_SLEEP_TIME)
 
-            # TODO: introduce a prioritization policy
-            #       current default policy is to choose receiving rank randomly
-
-            # TODO: choosing a rank randomly by converting dictionary keys into
-            #       a list can be a performance bottleneck; look into it later.
-            world_info = random.choice(list(self.__tx_qs.keys()))
+            world_info, tx_q = self._select(self.__tx_qs)
             logger.debug(f"world name: {world_info.name}")
             logger.debug(f"receiver rank: {world_info.other}")
 
-            # FIXME: this creates a head-of-line blocking issue
-            #        if the current queue is full. We need to fix it.
-            await self.__tx_qs[world_info].put((tensor, seqno))
-            logger.debug(f"put tensor {seqno} to __tx_q for {world_info.other}")
+            await tx_q.put((tensor, seqno))
+            logger.debug(
+                f"put tensor {seqno} to __tx_q for {world_info.other} in {world_info.name}"
+            )

@@ -13,4 +13,12 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
+import random
 
+from infscale.execution.world import WorldInfo
+
+
+def select(tx_qs: list[tuple[WorldInfo, asyncio.Queue]]) -> (WorldInfo, asyncio.Queue):
+    """Select tx queue randomly."""
+    return random.choice(tx_qs)

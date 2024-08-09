@@ -13,4 +13,11 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
 
+from infscale.execution.world import WorldInfo
+
+
+def select(tx_qs: list[tuple[WorldInfo, asyncio.Queue]]) -> (WorldInfo, asyncio.Queue):
+    """Select the first tx queue in the tx queue list."""
+    return tx_qs[0]

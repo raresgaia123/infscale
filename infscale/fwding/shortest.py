@@ -13,4 +13,20 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
+import asyncio
+import sys
 
+from infscale.execution.world import WorldInfo
+
+
+def select(tx_qs: list[tuple[WorldInfo, asyncio.Queue]]) -> (WorldInfo, asyncio.Queue):
+    """Select tx queue that has the shortest queue length."""
+    world_info, tx_q = None, None
+    qlen = sys.maxsize
+    for wi, q in tx_qs:
+        qsize = q.qsize()
+        if qsize < qlen:
+            world_info = wi
+            tx_q = q
+
+    return world_info, tx_q

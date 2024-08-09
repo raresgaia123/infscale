@@ -223,6 +223,8 @@ class ServeConfig:
 
     micro_batch_size: int = 8
 
+    fwd_policy: str = "random"
+
     def __post_init__(self):
         """Convert stage dict into stage object."""
         self.dataset = Dataset(**self.dataset)
