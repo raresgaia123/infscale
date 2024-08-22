@@ -73,7 +73,12 @@ class Pipeline:
                 else:
                     continue
 
-                name, addr, port = wrk_info.name, wrk_info.addr, wrk_info.port
+                name, backend, addr, port = (
+                    wrk_info.name,
+                    wrk_info.backend,
+                    wrk_info.addr,
+                    wrk_info.port,
+                )
                 world_size = len(wrk_info.peers) + 1
 
                 logger.info(f"initializing world {name} with my rank {my_rank}")
@@ -82,7 +87,7 @@ class Pipeline:
                     name,
                     my_rank,
                     world_size,
-                    backend=self.spec.backend,
+                    backend=backend,
                     addr=addr,
                     port=port,
                 )
@@ -90,7 +95,12 @@ class Pipeline:
 
     async def _initialize_control_channel(self):
         async def _inner(my_rank: int, other_rank: int, wrk_info: WorkerInfo):
-            name, addr, port = wrk_info.name, wrk_info.addr, wrk_info.port
+            name, backend, addr, port = (
+                wrk_info.name,
+                wrk_info.backend,
+                wrk_info.addr,
+                wrk_info.port,
+            )
             world_size = len(wrk_info.peers) + 1
 
             # increment port number by 1
@@ -101,6 +111,7 @@ class Pipeline:
                 "name": name,
                 "me": my_rank,
                 "other": other_rank,
+                "backend": backend,
                 "channel": ctrl_ch,
             }
             world_info = WorldInfo(**data)

@@ -6,7 +6,6 @@ nfaults: 1
 # after development is done, they need to be revised accordingly
 # to automate building flow_graph, etc.
 micro_batch_size: 8
-backend: nccl
 fwd_policy: "static"
 
 flow_graph:
@@ -15,16 +14,19 @@ flow_graph:
       addr: "127.0.0.1"
       port: 29500
       peers: [1-0]
+      backend: nccl
   0-0:
     - name: w1
       addr: "127.0.0.1" 
       port: 30500
       peers: [s-0]
+      backend: nccl
   1-0:
     - name: w2
       addr: "127.0.0.1"
       port: 31500
       peers: [0-0]
+      backend: nccl
 
 rank_map: # run worker in this rank order
   s-0: 0

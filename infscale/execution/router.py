@@ -114,41 +114,44 @@ class Router:
 
     async def _recv(self, world_info: WorldInfo) -> None:
         logger.debug(
-            f"start to receive tensors from {world_info.other} in world {world_info.name}"
+            f"start to receive tensor from {world_info.other} in world {world_info.name}"
         )
+        recv_dev = torch.device("cpu") if world_info.backend == "gloo" else self.device
         receiver = TensorReceiver(
             self.world_manager.communicator,
             world_info.channel,
             world_info.name,
             world_info.other,
-            self.device,
+            recv_dev,
         )
         logger.debug("created tensor receiver")
 
         while True:
             logger.debug("calling receiver.recv")
             try:
-                tensors, index = await receiver.recv()
+                tensor, index = await receiver.recv()
             except Exception as e:
                 logger.warn(f"{world_info.name} error: {e}")
                 break
 
+            if recv_dev != self.device:
+                tensor = tensor.to(self.device)
+
             logger.debug(f"received tensor {index}")
-            await self.__rx_q.put((tensors, index))
-            logger.debug(f"put tensors {index} into __rx_q")
+            await self.__rx_q.put((tensor, index))
+            logger.debug(f"put tensor {index} into __rx_q")
 
         logger.warn(f"done with recv task for {world_info.name}")
 
     async def _send(self, world_info: WorldInfo) -> None:
-        logger.debug(
-            f"start to send tensors to {world_info.other} in {world_info.name}"
-        )
+        logger.debug(f"start to send tensor to {world_info.other} in {world_info.name}")
+        send_dev = torch.device("cpu") if world_info.backend == "gloo" else self.device
         sender = TensorSender(
             self.world_manager.communicator,
             world_info.channel,
             world_info.name,
             world_info.other,
-            self.device,
+            send_dev,
         )
         logger.debug("created tensor sender")
         tx_q = None
@@ -169,6 +172,9 @@ class Router:
                     continue
                 logger.warn(f"{world_info.name} is broken")
                 break
+
+            if send_dev != self.device:
+                tensor = tensor.to(send_dev)
 
             logger.debug(f"got tensor {seqno} from __tx_q")
             try:

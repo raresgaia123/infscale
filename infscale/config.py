@@ -198,6 +198,7 @@ class WorkerInfo:
     addr: str
     port: int
     peers: list[str]
+    backend: str = "gloo"
 
 
 @dataclass
@@ -215,8 +216,6 @@ class ServeConfig:
 
     rank_map: dict[str, int]
 
-    backend: str = "gloo"
-
     device: str = "cpu"
 
     nfaults: int = 0  # no of faults to tolerate, default: 0 (no fault tolerance)
@@ -231,16 +230,16 @@ class ServeConfig:
         self.stage = Stage(**self.stage)
         for k in list(self.flow_graph.keys()):
             for i, item in enumerate(self.flow_graph[k]):
-                self.flow_graph[k][i] = WorkerInfo(**item)
+                worker_info = WorkerInfo(**item)
+                self.flow_graph[k][i] = worker_info
 
-        assert (self.backend == "gloo" and self.device == "cpu") or (
-            self.backend == "nccl" and "cuda" in self.device
-        )
+                if worker_info.backend == "nccl":
+                    assert "cuda" in self.device, "nccl requires cuda device"
 
 
 @dataclass
 class JobConfig:
-    """Class for job config"""
+    """Class for job config."""
 
     workers: list
     name: str
@@ -250,12 +249,10 @@ class JobConfig:
     dataset: Dataset
     nfaults: int = 0
     micro_batch_size: int = 8
-    backend: str = "gloo"
     fwd_policy: str = "random"
 
     def get_serve_configs(self):
         """Convert job config into a list of serve config dict."""
-
         serve_configs = []
 
         for item in self.workers:
@@ -268,7 +265,6 @@ class JobConfig:
                 "dataset": self.dataset,
                 "nfaults": self.nfaults,
                 "micro_batch_size": self.micro_batch_size,
-                "backend": self.backend,
                 "fwd_policy": self.fwd_policy,
                 "device": item["device"],
             }
