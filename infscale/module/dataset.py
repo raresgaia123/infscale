@@ -120,7 +120,6 @@ class HuggingFaceDataset:
 
         if self.model_group == ModelGroup.IMAGE:
             return batch["pixel_values"].to(device)
-            # return (batch["pixel_values"].to(device), batch["labels"].to(device))
         else:
             # TODO: implement this later
             raise NotImplementedError
