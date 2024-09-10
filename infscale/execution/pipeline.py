@@ -18,6 +18,7 @@
 
 import asyncio
 import time
+import os
 
 import torch
 from infscale import get_logger
@@ -195,10 +196,10 @@ class Pipeline:
             if idx % 100 == 0:
                 if start_time is None:
                     start_time = time.perf_counter()
-                print(f"processed {idx+1} batches")
+                print(f"Process ID: {os.getpid()} processed {idx+1} batches")
             idx += 1
         end_time = time.perf_counter()
-        print(f"elapsed time: {end_time - start_time}")
+        print(f"Process ID: {os.getpid()} elapsed time: {end_time - start_time}")
 
         logger.info("_server_recv task done")
 

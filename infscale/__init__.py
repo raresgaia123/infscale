@@ -18,13 +18,19 @@
 
 import logging
 import os
+import sys
 from logging import Logger
 
 from infscale.version import VERSION as __version__  # noqa: F401
 
 level = getattr(logging, os.getenv("INFSCALE_LOG_LEVEL", "WARNING"))
-formatter = logging.Formatter(
-    "%(asctime)s | %(filename)s:%(lineno)d | %(levelname)s | %(threadName)s | %(funcName)s | %(message)s"
+
+format = "%(process)d | %(asctime)s | %(filename)s:%(lineno)d | %(levelname)s | %(threadName)s | %(funcName)s | %(message)s"
+
+logging.basicConfig(
+    level=level,
+    format=format,
+    stream=sys.stdout
 )
 
 logger_registry = dict()
@@ -41,7 +47,6 @@ def get_logger(name: str = __name__) -> Logger:
         return logger_registry[name]
 
     logger = logging.getLogger(name)
-    logger.setLevel(level)
 
     logger_registry[name] = logger
 
