@@ -12,11 +12,14 @@ pyenv global 3.10.12
 Note that Python 3.10+ needs openssl1.1.1 and make sure openssl1.1.1+ is
 installed in your system.
 
+## Dependencies and Version
+
+* [PyTorch](https://pypi.org/project/torch/2.4.0/) version: `2.4.0`
+* [PyMultiWorld](https://pypi.org/project/multiworld/) version: >= `0.2.1`
+
 ## Installation
 
-We use Makefile for installation and uninstallation. Run `make install` to
-install infscale and `make uninstall` to delete it.
-For manual installation, run the following under the top folder (`infscale`):
+Run the following under the top folder (`infscale`):
 
 ```bash
 pip install .
@@ -71,3 +74,7 @@ To see some log messages, add `LOG_LEVEL=DEBUG` before each of the above command
 ```bash
 python -m pytest
 ```
+
+## License
+
+[Apache License 2.0](LICENSE).
