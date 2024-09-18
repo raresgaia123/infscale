@@ -109,8 +109,15 @@ class Agent:
 
     def launch(self):
         """Launch workers."""
+        self.create_workers()
+
+        job_monitor = JobMonitor(self._workers)
+        # create a task to monitor the job
+        job_monitor.message_listener()
+
+    def create_workers(self):
+        """Create Worker processes"""
         ctx = mp.get_context("spawn")
-        processes = []
 
         for local_rank, config in enumerate(self.job_config.get_serve_configs()):
             pipe, child_pipe = ctx.Pipe()
@@ -125,11 +132,7 @@ class Agent:
             )
             self._workers[local_rank] = WorkerMetaData(pipe, process)
             process.start()
-            processes.append(process)
             print(f"Process ID: {process.pid}")
-
-        job_monitor = JobMonitor(self._workers)
-        job_monitor.start_monitoring()
 
     def configure(self):
         """Configure workers."""

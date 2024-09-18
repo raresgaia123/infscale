@@ -14,6 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 from dataclasses import dataclass
 from multiprocessing import connection
 
@@ -37,8 +38,21 @@ class JobMonitor:
     def __init__(self, metadata: WorkerMetaData):
         self.metadata = metadata
 
-    def start_monitoring(self):
-        # TODO: this loop should be revised in an event-driven fashion
-        for rank, worker in self.metadata.items():
-            message = worker.pipe.recv()
-            print(f"received message: {message} from rank: {rank}")
+    def message_listener(self):
+        """Asynchronous parent listener to handle communication with workers."""
+        loop = asyncio.get_event_loop()
+        for worker_data in self.metadata.values():
+            loop.add_reader(
+                worker_data.pipe.fileno(), self.on_read_ready, worker_data.pipe, loop
+            )
+
+    def on_read_ready(
+        self, pipe: connection.Connection, loop: asyncio.AbstractEventLoop
+    ):
+        if pipe.poll():  # Check if there's data to read
+            try:
+                message = pipe.recv()  # Receive the message
+                if message:
+                    print(f"Parent received: {message}")
+            except EOFError:
+                loop.remove_reader(pipe.fileno())  # Clean up the reader
