@@ -40,7 +40,7 @@ class Agent:
     """Agent class manages workers in a node."""
 
     def __init__(
-        self, id: str, endpoint: str, job_config: JobConfig, skip_controller: bool
+        self, id: str, endpoint: str, job_config: JobConfig, use_controller: bool
     ):
         """Initialize the agent instance."""
         # TODO: there can be more than one worker per GPU
@@ -51,7 +51,7 @@ class Agent:
         self.id = id
         self.endpoint = endpoint
         self.job_config = job_config
-        self.skip_controller = skip_controller
+        self.use_controller = use_controller
 
         self.n_workers = torch.cuda.device_count()
 
@@ -71,7 +71,7 @@ class Agent:
         """Start the agent."""
         logger.info("run agent")
 
-        if not self.skip_controller:
+        if self.use_controller:
             reg_req = pb2.RegReq(id=self.id)  # register agent
 
             try:
@@ -84,11 +84,11 @@ class Agent:
                 logger.error(f"registration failed: {reg_res.reason}")
                 return
 
-        # create a task to send heart beat periodically
-        _ = asyncio.create_task(self.heart_beat())
+            # create a task to send heart beat periodically
+            _ = asyncio.create_task(self.heart_beat())
 
-        # create a task to send status in an event-driven fashion
-        _ = asyncio.create_task(self.report())
+            # create a task to send status in an event-driven fashion
+            _ = asyncio.create_task(self.report())
 
         self.monitor()
 
