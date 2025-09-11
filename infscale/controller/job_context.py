@@ -208,6 +208,14 @@ class RunningState(BaseJobState):
     async def cond_recovery(self):
         """Handle the transition to recovery."""
         self.context.set_state(JobStateEnum.RECOVERY)
+        
+    def cond_stopped(self):
+        """Handle the transition to stopped."""
+        # in the case of update from diamond to linear, we need to terminate
+        # one worker. Since the job will go back to running state, terminated worker
+        # will send it's status to the running state. For that reason, we only need 
+        # to implement a placeholder method.
+        pass
 
     async def cond_failing(self):
         """Handle the transition to failing."""
@@ -228,6 +236,7 @@ class StartingState(BaseJobState):
     async def cond_running(self):
         """Handle the transition to running."""
         if self.context.in_statuses_for_all_workers({WorkerStatus.RUNNING}):
+            self.context._cur_cfg = self.context._new_cfg
             self.context.set_state(JobStateEnum.RUNNING)
 
 
@@ -320,12 +329,14 @@ class UpdatingState(BaseJobState):
         """Handle the transition to running."""
         statuses = {WorkerStatus.RUNNING, WorkerStatus.UPDATED}
         if self.context.in_statuses_for_all_workers(statuses):
+            self.context._cur_cfg = self.context._new_cfg
             self.context.set_state(JobStateEnum.RUNNING)
 
     async def cond_updated(self):
         """Handle the transition to running."""
         statuses = {WorkerStatus.RUNNING, WorkerStatus.UPDATED}
         if self.context.in_statuses_for_all_workers(statuses):
+            self.context._cur_cfg = self.context._new_cfg
             self.context.set_state(JobStateEnum.RUNNING)
 
     async def cond_completing(self):
@@ -423,6 +434,7 @@ class RecoveryState(BaseJobState):
         """Handle the transition to running."""
         statuses = {WorkerStatus.RUNNING, WorkerStatus.UPDATED}
         if self.context.in_statuses_for_all_workers(statuses):
+            self.context._cur_cfg = self.context._new_cfg
             self.context.reset_cfg_recover_flags()
             await self.context.send_check_loop_command()
             self.context.set_state(JobStateEnum.RUNNING)
@@ -431,6 +443,7 @@ class RecoveryState(BaseJobState):
         """Handle the transition to running."""
         statuses = {WorkerStatus.RUNNING, WorkerStatus.UPDATED}
         if self.context.in_statuses_for_all_workers(statuses):
+            self.context._cur_cfg = self.context._new_cfg
             self.context.reset_cfg_recover_flags()
             await self.context.send_check_loop_command()
             self.context.set_state(JobStateEnum.RUNNING)
@@ -576,8 +589,8 @@ class JobContext:
         self.wrkr_metrics: dict[str, PerfMetrics] = {}
         self._server_ids: set[str] = set()
 
-        self._cur_cfg = None
-        self._new_cfg = None
+        self._cur_cfg: JobConfig | None = None
+        self._new_cfg: JobConfig | None = None
         self._flow_graph_patched = False
 
         # event to update the config after all agents added ports and ip address
@@ -889,6 +902,15 @@ class JobContext:
 
         agent_data.ready_to_config = False
 
+        # in the case of update, we need to mark workers as updating from 
+        # controller, to avoid status updates timing issues, making job state
+        # transition act weird. We need to compare configs after all the details
+        # in the config are updated.
+        _, updated_workers, _ = JobConfig.categorize_workers(self._cur_cfg, self._new_cfg)
+
+        for wid in updated_workers:
+            self.set_wrk_status(wid, WorkerStatus.UPDATING)
+
         # schedule config transfer to agent after job setup is done
         await self.ctrl.send_config_to_agent(agent_data.id, cfg, self.req)
 
@@ -900,10 +922,10 @@ class JobContext:
         self._patch_flow_graph_once()
 
         # since we updated flow graph and the update has been reflected
-        # into _cur_cfg, now we need to create a agent-specific config
-        # by deepcopying _cur_cfg. And we need to update agent-specific
+        # into _new_cfg, now we need to create a agent-specific config
+        # by deepcopying _new_cfg. And we need to update agent-specific
         # variables (i.e., to set deploy flag and device).
-        cfg = copy.deepcopy(self._cur_cfg)
+        cfg = copy.deepcopy(self._new_cfg)
 
         # step 2: update workers devices
         for w in cfg.workers:
@@ -970,9 +992,6 @@ class JobContext:
                     world.data_port = next(port_iter)
                     world.ctrl_port = next(port_iter)
                     world.backend = backend
-
-        # back up new config to current config
-        self._cur_cfg = self._new_cfg
 
         self._flow_graph_patched = True
 
@@ -1101,7 +1120,7 @@ class JobContext:
         # reset server_ids set
         self._server_ids.clear()
 
-        for worker in self._cur_cfg.workers:
+        for worker in self._new_cfg.workers:
             if not worker.is_server:
                 continue
             self._server_ids.add(worker.id)
