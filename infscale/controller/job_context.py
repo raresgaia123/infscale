@@ -435,6 +435,13 @@ class RecoveryState(BaseJobState):
 
         while True:
             self.context.manage_agent_metadata()
+
+            # get latest agents resource information
+            await self.context.ctrl.get_agents_res_info()
+
+            # wait to gather resources information from all agents
+            await self.context.ctrl.resources_info_evt.wait()
+
             wrk_resources_map = self._get_wrk_resources_map(failed_wrk_ids)
 
             if len(wrk_resources_map) == len(failed_wrk_ids):
@@ -529,44 +536,15 @@ class RecoveryState(BaseJobState):
         agent_gpu_map: dict[str, set[int]] = {}
 
         for wrk_id in wrk_ids:
-            curr_agent = self._get_curr_agent_data(wrk_id)
-            assign_success = False
-            # current agent id might not be available in the case of
-            # recover due to agent failure
-            curr_agent_id = curr_agent.id if curr_agent else ""
-
-            if curr_agent:
-                assign_success = self._assign_available_gpu_to_worker(
-                    curr_agent_id,
-                    agent_resources[curr_agent_id],
-                    wrk_id,
-                    wrk_agent_map,
-                    agent_gpu_map,
-                )
-
-            if not assign_success:
-                assign_success = self._search_gpu_on_all_agents(
-                    agent_resources, curr_agent_id, wrk_id, wrk_agent_map, agent_gpu_map
-                )
+            assign_success = self._search_gpu_on_all_agents(
+                agent_resources, wrk_id, wrk_agent_map, agent_gpu_map
+            )
 
             if not assign_success:
                 # if no resources, return and let while loop continue
                 return {}
 
         return wrk_agent_map
-
-    def _get_curr_agent_data(self, wrk_id: str) -> AgentMetaData:
-        """Return current agent that deployed worker ID."""
-        agent_data = next(
-            (
-                agent_data
-                for agent_data in self.context.running_agent_info.values()
-                if wrk_id in agent_data.wids_to_deploy
-            ),
-            None,
-        )
-
-        return agent_data
 
     def _add_gpu_to_agent(
         self, agent_id: str, gpu_id: int, agent_gpu_map: dict[str, set[int]]
@@ -605,7 +583,6 @@ class RecoveryState(BaseJobState):
     def _search_gpu_on_all_agents(
         self,
         agent_resources: dict[str, AgentResources],
-        curr_agent_id: str,
         wrk_id: str,
         wrk_agent_map: dict[str, tuple[str, int]],
         agent_gpu_map: dict[str, set[int]],
@@ -616,9 +593,6 @@ class RecoveryState(BaseJobState):
             bool: True if a GPU was successfully assigned, False otherwise.
         """
         for agent_id, resources in agent_resources.items():
-            if agent_id == curr_agent_id:
-                continue
-
             assign_success = self._assign_available_gpu_to_worker(
                 agent_id, resources, wrk_id, wrk_agent_map, agent_gpu_map
             )
